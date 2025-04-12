@@ -75,7 +75,7 @@ func handleTokenRenewal(c *gin.Context, ur *UserRepository.Repository, tr *Token
 	}
 
 	// 4. Retrieve the user from the database
-	user, err := ur.SelectUserByUsername(dbToken.UserUsername)
+	user, err := ur.SelectByUsername(dbToken.UserUsername)
 	if err != nil {
 		handleUnauthorized(c, "User not found.")
 		return

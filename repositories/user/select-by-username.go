@@ -7,7 +7,7 @@ import (
 	"github.com/okanay/backend-blog-guideofdubai/utils"
 )
 
-func (r *Repository) SelectUserByUsername(username string) (types.User, error) {
+func (r *Repository) SelectByUsername(username string) (types.User, error) {
 	defer utils.TimeTrack(time.Now(), "User -> Select User By Username")
 
 	var user types.User

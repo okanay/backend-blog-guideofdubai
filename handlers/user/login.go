@@ -20,7 +20,7 @@ func (h *Handler) Login(c *gin.Context) {
 	}
 
 	// Retrieve user information from the database
-	user, err := h.UserRepository.SelectUserByUsername(request.Username)
+	user, err := h.UserRepository.SelectByUsername(request.Username)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"success": false,
