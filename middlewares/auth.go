@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -22,11 +23,17 @@ func AuthMiddleware(ur *UserRepository.Repository, tr *TokenRepository.Repositor
 			return
 		}
 
+		fmt.Println(accessToken)
+
 		// 2. Validate the access token
 		claims, err := utils.ValidateAccessToken(accessToken)
+		fmt.Println(claims)
+		fmt.Println(err.Error())
+
 		if err != nil {
 			// If the access token is invalid or expired, check the refresh token
 			expired, _ := utils.IsTokenExpired(accessToken)
+			fmt.Println(expired)
 			if expired {
 				// If the token is expired, attempt renewal
 				handleTokenRenewal(c, ur, tr)
@@ -37,6 +44,9 @@ func AuthMiddleware(ur *UserRepository.Repository, tr *TokenRepository.Repositor
 			handleUnauthorized(c, "Invalid session.")
 			return
 		}
+
+		// Newer React Here...
+		fmt.Println(claims)
 
 		// 3. Token is valid, add user information to the context
 		c.Set("user_id", claims.UniqueID)
@@ -50,6 +60,8 @@ func AuthMiddleware(ur *UserRepository.Repository, tr *TokenRepository.Repositor
 }
 
 func handleTokenRenewal(c *gin.Context, ur *UserRepository.Repository, tr *TokenRepository.Repository) {
+	defer utils.TimeTrack(time.Now(), "Token -> Renewal User Token")
+
 	// 1. Retrieve the refresh token
 	refreshToken, err := c.Cookie(configs.REFRESH_TOKEN_NAME)
 	if err != nil {
