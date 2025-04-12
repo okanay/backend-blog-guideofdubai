@@ -2,7 +2,6 @@ package middlewares
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -41,7 +40,6 @@ func AuthMiddleware(ur *UserRepository.Repository, tr *TokenRepository.Repositor
 		c.Set("username", claims.Username)
 		c.Set("email", claims.Email)
 		c.Set("role", claims.Role)
-		fmt.Println(claims)
 
 		// 4. Continue processing
 		c.Next()
