@@ -1,11 +1,13 @@
 package middlewares
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/okanay/backend-blog-guideofdubai/configs"
 	TokenRepository "github.com/okanay/backend-blog-guideofdubai/repositories/token"
 	UserRepository "github.com/okanay/backend-blog-guideofdubai/repositories/user"
@@ -23,36 +25,23 @@ func AuthMiddleware(ur *UserRepository.Repository, tr *TokenRepository.Repositor
 			return
 		}
 
-		fmt.Println(accessToken)
-
-		// 2. Validate the access token
 		claims, err := utils.ValidateAccessToken(accessToken)
-		fmt.Println(claims)
-		fmt.Println(err.Error())
-
 		if err != nil {
-			// If the access token is invalid or expired, check the refresh token
-			expired, _ := utils.IsTokenExpired(accessToken)
-			fmt.Println(expired)
-			if expired {
-				// If the token is expired, attempt renewal
+			// Hatanın türünü kontrol et
+			if errors.Is(err, jwt.ErrTokenExpired) {
 				handleTokenRenewal(c, ur, tr)
 				return
 			}
 
-			// If the token is invalid and it's not an expiration issue, terminate the session
-			handleUnauthorized(c, "Invalid session.")
+			handleUnauthorized(c, "Invalid session token.") // Daha spesifik mesaj
 			return
 		}
 
-		// Newer React Here...
-		fmt.Println(claims)
-
-		// 3. Token is valid, add user information to the context
 		c.Set("user_id", claims.UniqueID)
 		c.Set("username", claims.Username)
 		c.Set("email", claims.Email)
 		c.Set("role", claims.Role)
+		fmt.Println(claims)
 
 		// 4. Continue processing
 		c.Next()

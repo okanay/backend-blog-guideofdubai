@@ -25,12 +25,13 @@ func GenerateAccessToken(claims types.TokenClaims) (string, error) {
 		return "", errors.New("JWT_ACCESS_SECRET environment variable is not set")
 	}
 
-	expiryMinutes := configs.ACCESS_TOKEN_DURATION
+	// utils/token.go - GenerateAccessToken içinde DOĞRU KULLANIM
+	expiryDuration := configs.ACCESS_TOKEN_DURATION // Doğrudan time.Duration'ı al
 
-	// JWT claims yapısını oluştur
+	// ...
 	tokenClaims := JWTClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(expiryMinutes) * time.Minute)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiryDuration)), // DOĞRU: Sadece expiryDuration eklenir.
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
 			Issuer:    configs.JWT_ISSUER,
@@ -56,6 +57,7 @@ func ValidateAccessToken(tokenString string) (*types.TokenClaims, error) {
 	// JWT için secret key'i çevresel değişkenlerden al
 	secretKey := os.Getenv("JWT_ACCESS_SECRET")
 	if secretKey == "" {
+		// Loglama kaldırıldı. İsterseniz burada merkezi bir loglama sistemine log atabilirsiniz.
 		return nil, errors.New("JWT_ACCESS_SECRET environment variable is not set")
 	}
 
@@ -64,22 +66,28 @@ func ValidateAccessToken(tokenString string) (*types.TokenClaims, error) {
 
 	// Token'ı parse et ve doğrula
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		// Algoritma kontrolü
+		// Algoritma kontrolü (Sadece HS256 bekleniyor)
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return []byte(secretKey), nil
 	})
 
+	// Hata durumu kontrolü
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse token: %w", err)
+		// Hata detayları loglanmıyor. Hata sarmalanarak (wrapping) döndürülüyor.
+		// Bu sayede çağıran fonksiyon (middleware) errors.Is ile spesifik JWT hatalarını
+		// (örn: jwt.ErrTokenExpired) kontrol edebilir.
+		return nil, fmt.Errorf("failed to parse or validate token: %w", err)
 	}
 
-	// Token geçerliliğini kontrol et
+	// Token geçerliliğini kontrol et (ParseWithClaims genellikle bunu err içinde yakalar)
 	if !token.Valid {
-		return nil, errors.New("invalid token")
+		// Loglama kaldırıldı.
+		return nil, errors.New("token parsed but marked as invalid")
 	}
 
+	// Token geçerli, claims'i döndür
 	return &claims.TokenClaims, nil
 }
 
