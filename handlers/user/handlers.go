@@ -1,6 +1,6 @@
 package UserHandler
 
-import UserRepository "github.com/okanay/go-websocket-backend/repositories/user"
+import UserRepository "github.com/okanay/backend-blog-guideofdubai/repositories/user"
 
 type Handler struct {
 	UserRepository *UserRepository.Repository

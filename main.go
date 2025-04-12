@@ -6,37 +6,33 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	c "github.com/okanay/go-websocket-backend/configs"
-	db "github.com/okanay/go-websocket-backend/database"
-	"github.com/okanay/go-websocket-backend/handlers"
-	BlogHandler "github.com/okanay/go-websocket-backend/handlers/blog"
-	UserHandler "github.com/okanay/go-websocket-backend/handlers/user"
-	BlogRepository "github.com/okanay/go-websocket-backend/repositories/blog"
-	UserRepository "github.com/okanay/go-websocket-backend/repositories/user"
+	c "github.com/okanay/backend-blog-guideofdubai/configs"
+	db "github.com/okanay/backend-blog-guideofdubai/database"
+	"github.com/okanay/backend-blog-guideofdubai/handlers"
+	UserHandler "github.com/okanay/backend-blog-guideofdubai/handlers/user"
+	UserRepository "github.com/okanay/backend-blog-guideofdubai/repositories/user"
 )
 
 func main() {
 	// Environment Variables and Database Connection
 	if err := godotenv.Load(".env"); err != nil {
-		// Geliştirme ortamında .env dosyası olmayabilir, bu yüzden bu hata ihmal edilebilir
-		log.Println("Warning: .env file not loaded, using environment variables")
+		log.Fatalf("[ENV]: .env file not loaded")
+		return
 	}
 
 	sqlDB, err := db.Init(os.Getenv("DATABASE_URL"))
 	if err != nil {
-		log.Fatalf("Error connecting to database")
+		log.Fatalf("[DATABASE]:Error connecting to database")
 		return
 	}
 	defer sqlDB.Close()
 
 	// Repository Initialization
 	ur := UserRepository.NewRepository(sqlDB)
-	br := BlogRepository.NewRepository(sqlDB)
 
 	// Handler Initialization
 	mainHandler := handlers.NewHandler()
 	uh := UserHandler.NewHandler(ur)
-	bh := BlogHandler.NewHandler(br)
 
 	// Router Initialize
 	router := gin.Default()
@@ -51,8 +47,7 @@ func main() {
 	router.NoRoute(mainHandler.NotFound)
 
 	// Socket Routes
-	router.GET("/blog", bh.BlogPageIndex)
-	router.GET("/user", uh.UserPageIndex)
+	router.POST("/user/register", uh.CreateNewUser)
 
 	// Start Server
 	err = router.Run(":" + os.Getenv("PORT"))

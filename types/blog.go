@@ -2,6 +2,15 @@ package types
 
 import "time"
 
+type Status string
+
+const (
+	Draft     Status = "draft"
+	Published Status = "published"
+	Archived  Status = "archived"
+	Deleted   Status = "deleted"
+)
+
 type BlogPost struct {
 	ID          string    `json:"id"`
 	GroupID     string    `json:"groupId"`
@@ -9,7 +18,7 @@ type BlogPost struct {
 	Metadata    Metadata  `json:"metadata"`
 	Content     Content   `json:"content"`
 	Stats       Stats     `json:"stats"`
-	Language    Language  `json:"language"`
+	Language    string    `json:"language"`
 	Featured    bool      `json:"featured"`
 	Status      Status    `json:"status"`
 	CreatedAt   time.Time `json:"createdAt"`
