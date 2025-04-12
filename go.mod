@@ -7,6 +7,7 @@ require (
 	github.com/gin-contrib/secure v1.1.1
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-playground/validator/v10 v10.23.0
+	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/golang-migrate/migrate/v4 v4.18.2
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.10.9

@@ -18,6 +18,16 @@ type RefreshToken struct {
 	RevokedReason string    `db:"revoked_reason,omitempty" json:"revokedReason,omitempty"`
 }
 
+type TokenCreateRequest struct {
+	UserID       int64     `db:"user_id" json:"userId"`
+	UserEmail    string    `db:"user_email" json:"userEmail"`
+	UserUsername string    `db:"user_username" json:"userUsername"`
+	Token        string    `db:"token" json:"token"`
+	IPAddress    string    `db:"ip_address" json:"ipAddress"`
+	UserAgent    string    `db:"user_agent" json:"userAgent"`
+	ExpiresAt    time.Time `db:"expires_at" json:"expiresAt"`
+}
+
 // Information to be carried in JWT
 type TokenClaims struct {
 	UniqueID string `json:"uniqueId"`

@@ -11,6 +11,7 @@ import (
 	"github.com/okanay/backend-blog-guideofdubai/handlers"
 	UserHandler "github.com/okanay/backend-blog-guideofdubai/handlers/user"
 	"github.com/okanay/backend-blog-guideofdubai/middlewares"
+	TokenRepository "github.com/okanay/backend-blog-guideofdubai/repositories/token"
 	UserRepository "github.com/okanay/backend-blog-guideofdubai/repositories/user"
 )
 
@@ -30,10 +31,11 @@ func main() {
 
 	// Repository Initialization
 	ur := UserRepository.NewRepository(sqlDB)
+	tr := TokenRepository.NewRepository(sqlDB)
 
 	// Handler Initialization
 	mainHandler := handlers.NewHandler()
-	uh := UserHandler.NewHandler(ur)
+	uh := UserHandler.NewHandler(ur, tr)
 
 	// Router Initialize
 	router := gin.Default()
@@ -44,14 +46,15 @@ func main() {
 	router.MaxMultipartMemory = 10 << 20 // MB : 10 MB
 
 	auth := router.Group("/auth")
-	auth.Use(middlewares.AuthMiddleware(ur))
+	auth.Use(middlewares.AuthMiddleware(ur, tr))
 
 	// Global Routes
 	router.GET("/", mainHandler.Index)
 	router.NoRoute(mainHandler.NotFound)
 
-	// Socket Routes
-	router.POST("/user/register", uh.CreateNewUser)
+	// User Routes
+	router.POST("/user/login", uh.Login)
+	router.POST("/user/register", uh.Register)
 
 	// Start Server
 	err = router.Run(":" + os.Getenv("PORT"))

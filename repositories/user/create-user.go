@@ -7,7 +7,7 @@ import (
 	"github.com/okanay/backend-blog-guideofdubai/utils"
 )
 
-func (r *Repository) CreateNewUser(request types.UserCreateRequest) (types.User, error) {
+func (r *Repository) CreateUser(request types.UserCreateRequest) (types.User, error) {
 	defer utils.TimeTrack(time.Now(), "User -> Create User")
 
 	var user types.User

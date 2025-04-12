@@ -11,7 +11,7 @@ import (
 	"github.com/okanay/backend-blog-guideofdubai/utils"
 )
 
-func (h *Handler) CreateNewUser(c *gin.Context) {
+func (h *Handler) Register(c *gin.Context) {
 	var request types.UserCreateRequest
 
 	err := utils.ValidateRequest(c, &request)
@@ -19,7 +19,7 @@ func (h *Handler) CreateNewUser(c *gin.Context) {
 		return
 	}
 
-	user, err := h.UserRepository.CreateNewUser(request)
+	user, err := h.UserRepository.CreateUser(request)
 	if err != nil {
 		var pqErr *pq.Error
 		if errors.As(err, &pqErr) {
@@ -30,19 +30,19 @@ func (h *Handler) CreateNewUser(c *gin.Context) {
 					c.JSON(http.StatusConflict, gin.H{
 						"success": false,
 						"error":   "username_exists",
-						"message": "Bu kullanıcı adı zaten kullanılıyor.",
+						"message": "This username is already in use.",
 					})
 				} else if strings.Contains(constraintName, "email") {
 					c.JSON(http.StatusConflict, gin.H{
 						"success": false,
 						"error":   "email_exists",
-						"message": "Bu e-posta adresi zaten kullanılıyor.",
+						"message": "This email address is already in use.",
 					})
 				} else {
 					c.JSON(http.StatusConflict, gin.H{
 						"success": false,
 						"error":   "duplicate_entry",
-						"message": "Bu kayıt zaten mevcut.",
+						"message": "This entry already exists.",
 					})
 				}
 				return
@@ -51,14 +51,14 @@ func (h *Handler) CreateNewUser(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
 			"error":   "server_error",
-			"message": "Kullanıcı oluşturulurken bir hata oluştu.",
+			"message": "An error occurred while creating the user.",
 		})
 		return
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,
-		"message": "Kullanıcı başarıyla oluşturuldu.",
+		"message": "User created successfully.",
 		"user":    user,
 	})
 }
