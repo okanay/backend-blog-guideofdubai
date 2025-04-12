@@ -2,7 +2,7 @@ package types
 
 import "time"
 
-// UserStatus - kullanıcı durumu enum tipi
+// UserStatus - user status enum type
 type UserStatus string
 
 const (
@@ -11,7 +11,7 @@ const (
 	UserStatusDeleted   UserStatus = "Deleted"
 )
 
-// Role - kullanıcı rol enum tipi
+// Role - user role enum type
 type Role string
 
 const (
@@ -20,7 +20,7 @@ const (
 	RoleAdmin  Role = "Admin"
 )
 
-// Tablo Modeli (database/migrations/00001.auth.up.sql)
+// Table Model (database/migrations/00001.auth.up.sql)
 type User struct {
 	ID             int64      `db:"id" json:"id"`
 	UniqueID       string     `db:"unique_id" json:"uniqueId"`
@@ -36,7 +36,7 @@ type User struct {
 	UpdatedAt      time.Time  `db:"updated_at" json:"updatedAt"`
 }
 
-// UserProfileResponse - Kullanıcı profilini döndürmek için güvenli model
+// UserProfileResponse - secure model to return user profile
 type UserProfileResponse struct {
 	ID            string     `json:"id"`
 	Username      string     `json:"username"`
@@ -48,14 +48,14 @@ type UserProfileResponse struct {
 	LastLogin     time.Time  `json:"lastLogin"`
 }
 
-// UserCreateRequest - Kullanıcı oluşturma isteği
+// UserCreateRequest - user creation request
 type UserCreateRequest struct {
 	Username string `json:"username" binding:"required,min=3,max=50"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
 }
 
-// UserLoginRequest - Kullanıcı giriş isteği
+// UserLoginRequest - user login request
 type UserLoginRequest struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`

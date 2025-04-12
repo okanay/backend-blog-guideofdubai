@@ -2,7 +2,7 @@ package types
 
 import "time"
 
-// Tablo Modeli (database/migrations/00001.auth.up.sql)
+// Table Model (database/migrations/00001.auth.up.sql)
 type RefreshToken struct {
 	ID            int64     `db:"id" json:"id"`
 	UserID        int64     `db:"user_id" json:"userId"`
@@ -18,7 +18,7 @@ type RefreshToken struct {
 	RevokedReason string    `db:"revoked_reason,omitempty" json:"revokedReason,omitempty"`
 }
 
-// JWT içinde taşınacak bilgiler
+// Information to be carried in JWT
 type TokenClaims struct {
 	UniqueID string `json:"uniqueId"`
 	Username string `json:"username"`

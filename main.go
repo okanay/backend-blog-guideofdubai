@@ -10,6 +10,7 @@ import (
 	db "github.com/okanay/backend-blog-guideofdubai/database"
 	"github.com/okanay/backend-blog-guideofdubai/handlers"
 	UserHandler "github.com/okanay/backend-blog-guideofdubai/handlers/user"
+	"github.com/okanay/backend-blog-guideofdubai/middlewares"
 	UserRepository "github.com/okanay/backend-blog-guideofdubai/repositories/user"
 )
 
@@ -22,7 +23,7 @@ func main() {
 
 	sqlDB, err := db.Init(os.Getenv("DATABASE_URL"))
 	if err != nil {
-		log.Fatalf("[DATABASE]:Error connecting to database")
+		log.Fatalf("[DATABASE]: Error connecting to database")
 		return
 	}
 	defer sqlDB.Close()
@@ -41,6 +42,9 @@ func main() {
 
 	// Router Configuration
 	router.MaxMultipartMemory = 10 << 20 // MB : 10 MB
+
+	auth := router.Group("/auth")
+	auth.Use(middlewares.AuthMiddleware(ur))
 
 	// Global Routes
 	router.GET("/", mainHandler.Index)

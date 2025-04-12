@@ -9,6 +9,8 @@
 *.exe~
 
 main
+tmp
+build
 
 *.dll
 *.so
