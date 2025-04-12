@@ -5,6 +5,9 @@ PORT=8080
 BINARY_NAME=guideofdubai-blog
 BUILD_DIR=./build
 AIR_PATH=$(HOME)/go/bin/air
+MIGRATE_TOOL_SRC := ./cmd/migrate/main.go
+MIGRATE_TOOL_BIN := ./bin/migrate_tool
+MIGRATIONS_PATH := ./database/migrations
 
 # Ana komutlar
 build:
@@ -36,37 +39,92 @@ pull:
 	git pull && go build -o $(BUILD_DIR)/$(BINARY_NAME) main.go && sudo systemctl restart api-menuarts.service
 
 # Migration file oluştur
-db:
+migrate-db:
 	@test -n "${n}" || (echo "Error: 'n' (name) is not set. Use 'make db n=yourfilename'"; exit 1)
 	migrate create -ext sql -dir database/migrations -seq ${n}
 
-# Migration up
-up:
-	@echo "Running migration up..."
-	go run cmd/migrate/up/main.go
+migrate-build:
+	@echo ">> Migration tool is being built..."
+	@mkdir -p $(shell dirname ${MIGRATE_TOOL_BIN}) # create bin directory
+	@go build -o ${MIGRATE_TOOL_BIN} ${MIGRATE_TOOL_SRC}
+	@echo ">> Build completed: ${MIGRATE_TOOL_BIN}"
 
-# Migration down
-down:
-	@echo "Running migration down..."
-	go run cmd/migrate/down/main.go
+# One step forward
+migrate-up: migrate-build
+	@echo ">> Migration: Up (1 step)"
+	@${MIGRATE_TOOL_BIN} up
 
-# Migration force (belirli bir versiyona zorla)
-force:
-	@test -n "${v}" || (echo "Error: 'v' (version) is not set. Use 'make force v=desired_version'"; exit 1)
-	@echo "Forcing migration to version ${v}..."
-	go run cmd/migrate/force/main.go ${v}
+# One step backward
+migrate-down: migrate-build
+	@echo ">> Migration: Down (1 step)"
+	@${MIGRATE_TOOL_BIN} down
+
+# All steps forward
+migrate-up-all: migrate-build
+	@echo ">> Migration: Up All"
+	@${MIGRATE_TOOL_BIN} up_all
+
+# All steps backward
+migrate-down-all: migrate-build
+	@echo ">> Migration: Down All"
+	@${MIGRATE_TOOL_BIN} down_all
+
+# Migrate to a specific version
+migrate-goto: migrate-build
+	@if [ -z "$(V)" ]; then \
+		echo "ERROR: You must specify a version number with the 'V' variable."; \
+		echo "Example: make migrate-goto V=3"; \
+		exit 1; \
+	fi
+	@echo ">> Migration: Goto version $(V)"
+	@${MIGRATE_TOOL_BIN} goto $(V)
+
+# Force migration to a specific version
+migrate-force: migrate-build
+	@if [ -z "$(V)" ]; then \
+		echo "ERROR: You must specify a version number with the 'V' variable."; \
+		echo "Example: make migrate-force V=2"; \
+		exit 1; \
+	fi
+	@echo ">> Migration: Force version $(V)"
+	@read -p "WARNING: This will change the database record but not run the files. Are you sure? (y/N) " choice; \
+	if [ "$${choice}" = "y" ] || [ "$${choice}" = "Y" ]; then \
+		${MIGRATE_TOOL_BIN} force $(V); \
+	else \
+		echo "Operation cancelled."; \
+		exit 1; \
+	fi
+
+# Show current version
+migrate-version: migrate-build
+	@echo ">> Migration: Version"
+	@${MIGRATE_TOOL_BIN} version
+
+# Clean built files
+migrate-clean:
+	@echo ">> Cleaning..."
+	@rm -f ${MIGRATE_TOOL_BIN}
+	@echo ">> Clean completed."
 
 # Yardım
 help:
 	@echo "Available commands:"
-	@echo "  make build       - Build the application"
-	@echo "  make run         - Build and run the application"
-	@echo "  make dev         - Run with hot-reload using Air"
-	@echo "  make clean       - Remove build artifacts"
-	@echo "  make kill        - Kill process running on port $(PORT)"
-	@echo "  make pull        - Pull latest changes and restart service"
-	@echo "  make db n=name   - Create a new migration file with the given name"
-	@echo "  make up          - Run migration up"
-	@echo "  make down        - Run migration down"
-	@echo "  make force v=ver - Force migration to a specific version"
-	@echo "  make help        - Display this help message"
+	@echo "  make build               - Build the application"
+	@echo "  make run                 - Build and run the application"
+	@echo "  make dev                 - Run with hot-reload using Air"
+	@echo "  make clean               - Remove build artifacts"
+	@echo "  make kill                - Kill process running on port $(PORT)"
+	@echo "  make pull                - Pull latest changes and restart service"
+	@echo "  make help                - Display this help message"
+	@echo ""
+	@echo "Migration Commands:"
+	@echo "  make migrate-build       - Build the migration tool (${MIGRATE_TOOL_BIN})"
+	@echo "  make migrate-db n=name   - Create a new migration file with the given name"
+	@echo "  make migrate-up          - Apply one step forward migration"
+	@echo "  make migrate-down        - Revert one step backward migration"
+	@echo "  make migrate-up-all      - Apply all pending migrations"
+	@echo "  make migrate-down-all    - Revert all migrations"
+	@echo "  make migrate-goto V=<version> - Migrate to the specified <version>"
+	@echo "  make migrate-force V=<version> - Force migration to <version> (use with caution!)"
+	@echo "  make migrate-version     - Show the current migration version"
+	@echo "  make migrate-clean       - Clean built files"

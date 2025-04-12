@@ -11,6 +11,7 @@
 main
 tmp
 build
+bin
 
 *.dll
 *.so
