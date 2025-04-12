@@ -83,7 +83,7 @@ func (h *Handler) Login(c *gin.Context) {
 	refreshToken := utils.GenerateRefreshToken()
 
 	// Set expiration date for refresh token
-	expiresAt := time.Now().Add(configs.SESSION_DURATION)
+	expiresAt := time.Now().Add(configs.REFRESH_TOKEN_DURATION)
 
 	// Save refresh token to the database
 	tokenRequest := types.TokenCreateRequest{
@@ -118,9 +118,9 @@ func (h *Handler) Login(c *gin.Context) {
 	// Access Token Cookie
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie(
-		configs.SESSION_ACCESS_TOKEN_NAME,
+		configs.ACCESS_TOKEN_NAME,
 		accessToken,
-		int(configs.JWT_ACCESS_TOKEN_EXPIRATION.Seconds()),
+		int(configs.ACCESS_TOKEN_DURATION.Seconds()),
 		"/",
 		"",    // Domain - can be left empty, browser will use the current domain
 		false, // Secure - should be true in production
@@ -130,9 +130,9 @@ func (h *Handler) Login(c *gin.Context) {
 	// Refresh Token Cookie
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie(
-		configs.SESSION_REFRESH_TOKEN_NAME,
+		configs.REFRESH_TOKEN_NAME,
 		refreshToken,
-		int(configs.SESSION_DURATION.Seconds()),
+		int(configs.REFRESH_TOKEN_DURATION.Seconds()),
 		"/",
 		"",    // Domain
 		false, // Secure

@@ -6,8 +6,8 @@ CREATE TYPE role AS ENUM ('User', 'Editor', 'Admin');
 CREATE TABLE IF NOT EXISTS users (
   id bigint primary key generated always as identity,
   unique_id TEXT DEFAULT ('1' || substring(md5(random()::text) from 1 for 8)) UNIQUE,
-  username TEXT NOT NULL UNIQUE,
   email TEXT UNIQUE NOT NULL,
+  username TEXT NOT NULL UNIQUE,
   hashed_password TEXT NOT NULL,
   membership role DEFAULT 'User' NOT NULL,
   email_verified BOOLEAN DEFAULT FALSE,

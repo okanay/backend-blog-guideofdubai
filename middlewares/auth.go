@@ -15,7 +15,7 @@ import (
 func AuthMiddleware(ur *UserRepository.Repository, tr *TokenRepository.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 1. Check access token
-		accessToken, err := c.Cookie(configs.SESSION_ACCESS_TOKEN_NAME)
+		accessToken, err := c.Cookie(configs.ACCESS_TOKEN_NAME)
 		if err != nil {
 			// If there is no access token, check the refresh token
 			handleTokenRenewal(c, ur, tr)
@@ -51,40 +51,40 @@ func AuthMiddleware(ur *UserRepository.Repository, tr *TokenRepository.Repositor
 
 func handleTokenRenewal(c *gin.Context, ur *UserRepository.Repository, tr *TokenRepository.Repository) {
 	// 1. Retrieve the refresh token
-	refreshToken, err := c.Cookie(configs.SESSION_REFRESH_TOKEN_NAME)
+	refreshToken, err := c.Cookie(configs.REFRESH_TOKEN_NAME)
 	if err != nil {
-		handleUnauthorized(c, "Oturum bulunamadı.")
+		handleUnauthorized(c, "Session not found.")
 		return
 	}
 
 	// 2. Check the refresh token in the database
 	dbToken, err := tr.SelectRefreshTokenByToken(refreshToken)
 	if err != nil {
-		handleUnauthorized(c, "Oturum geçersiz.")
+		handleUnauthorized(c, "Invalid session.")
 		return
 	}
 
 	// 3. Validate the refresh token
 	if dbToken.IsRevoked {
-		handleUnauthorized(c, "Oturum iptal edilmiş.")
+		handleUnauthorized(c, "Session has been revoked.")
 		return
 	}
 
 	if dbToken.ExpiresAt.Before(time.Now()) {
-		handleUnauthorized(c, "Oturum süresi dolmuş.")
+		handleUnauthorized(c, "Session has expired.")
 		return
 	}
 
 	// 4. Retrieve the user from the database
 	user, err := ur.SelectUserByUsername(dbToken.UserUsername)
 	if err != nil {
-		handleUnauthorized(c, "Kullanıcı bulunamadı.")
+		handleUnauthorized(c, "User not found.")
 		return
 	}
 
 	// 5. Check the user's status
 	if user.Status != types.UserStatusActive {
-		handleUnauthorized(c, "Hesabınız aktif değil.")
+		handleUnauthorized(c, "Your account is not active.")
 		return
 	}
 
@@ -117,9 +117,9 @@ func handleTokenRenewal(c *gin.Context, ur *UserRepository.Repository, tr *Token
 	// 9. Set the new access token cookie
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie(
-		configs.SESSION_ACCESS_TOKEN_NAME,
+		configs.ACCESS_TOKEN_NAME,
 		newAccessToken,
-		int(configs.JWT_ACCESS_TOKEN_EXPIRATION.Seconds()),
+		int(configs.ACCESS_TOKEN_DURATION.Seconds()),
 		"/",
 		"",
 		false,
@@ -139,8 +139,8 @@ func handleTokenRenewal(c *gin.Context, ur *UserRepository.Repository, tr *Token
 func handleUnauthorized(c *gin.Context, message string) {
 	// Clear cookies
 	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie(configs.SESSION_ACCESS_TOKEN_NAME, "", -1, "/", "", false, true)
-	c.SetCookie(configs.SESSION_REFRESH_TOKEN_NAME, "", -1, "/", "", false, true)
+	c.SetCookie(configs.ACCESS_TOKEN_NAME, "", -1, "/", "", false, true)
+	c.SetCookie(configs.REFRESH_TOKEN_NAME, "", -1, "/", "", false, true)
 
 	// Return error
 	c.JSON(http.StatusUnauthorized, gin.H{

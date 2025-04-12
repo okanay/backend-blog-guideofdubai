@@ -49,12 +49,12 @@ func main() {
 	auth.Use(middlewares.AuthMiddleware(ur, tr))
 
 	// Global Routes
-	router.GET("/", mainHandler.Index)
+	auth.GET("/test", mainHandler.Index)
 	router.NoRoute(mainHandler.NotFound)
 
 	// User Routes
-	router.POST("/user/login", uh.Login)
-	router.POST("/user/register", uh.Register)
+	router.POST("/login", uh.Login)
+	router.POST("/register", uh.Register)
 
 	// Start Server
 	err = router.Run(":" + os.Getenv("PORT"))

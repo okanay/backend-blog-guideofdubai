@@ -25,7 +25,7 @@ func GenerateAccessToken(claims types.TokenClaims) (string, error) {
 		return "", errors.New("JWT_ACCESS_SECRET environment variable is not set")
 	}
 
-	expiryMinutes := configs.JWT_ACCESS_TOKEN_EXPIRATION
+	expiryMinutes := configs.ACCESS_TOKEN_DURATION
 
 	// JWT claims yapısını oluştur
 	tokenClaims := JWTClaims{
@@ -132,7 +132,7 @@ func ExtractClaims(tokenString string) (*types.TokenClaims, error) {
 // GenerateRefreshToken, benzersiz bir refresh token string'i oluşturur
 func GenerateRefreshToken() string {
 	// Güvenli random string oluştur
-	return GenerateRandomString(configs.JWT_REFRESH_TOKEN_LENGTH)
+	return GenerateRandomString(configs.REFRESH_TOKEN_LENGTH)
 }
 
 // ShouldRefreshToken, token'ın yenilenip yenilenmemesi gerektiğini kontrol eder
