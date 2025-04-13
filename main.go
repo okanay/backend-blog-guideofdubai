@@ -56,10 +56,6 @@ func main() {
 	router.POST("/login", uh.Login)
 	router.POST("/register", uh.Register)
 
-	auth.GET("/blog/create", func(c *gin.Context) {
-		c.JSON(200, gin.H{"message": "Test Created"})
-	})
-
 	// Start Server
 	err = router.Run(":" + os.Getenv("PORT"))
 	if err != nil {

@@ -5,58 +5,56 @@ import (
 )
 
 type Permission string
+type Access string
 
 const (
-	PermissionView       Permission = "view-post"
-	PermissionCreatePost Permission = "create-post"
-
-	PermissionEditOwnPost Permission = "edit-own-post"
-	PermissionEditAnyPost Permission = "edit-any-post"
-
-	PermissionDeleteOwnPost Permission = "delete-own-post"
-	PermissionDeleteAnyPost Permission = "delete-any-post"
+	CreatePost Permission = "create-post"
+	EditPost   Permission = "edit-post"
+	DeletePost Permission = "delete-post"
 )
 
-var RolePermissions = map[types.Role][]Permission{
-	types.RoleUser: {
-		PermissionView,
-	},
+const (
+	AccessFull Access = "full"
+	AccessOwn  Access = "own"
+	AccessNone Access = "none"
+)
+
+var RolePermissionConfig = map[types.Role]map[Permission]Access{
 	types.RoleEditor: {
-		PermissionView,
-		PermissionCreatePost,
-		PermissionEditOwnPost,
-		PermissionDeleteOwnPost,
+		CreatePost: AccessFull,
+		EditPost:   AccessFull,
+		DeletePost: AccessNone,
 	},
-	types.RoleAdmin: {
-		PermissionView,
-		PermissionCreatePost,
-		PermissionEditAnyPost,
-		PermissionDeleteAnyPost,
+	types.RoleUser: {
+		CreatePost: AccessNone,
+		EditPost:   AccessNone,
+		DeletePost: AccessNone,
 	},
 }
 
-// Bu fonksiyon faydalı değil ve gelecekteki senaryolara uygun değil.
-func HasPermission(role types.Role, requiredPermissions []Permission) bool {
-	grantedPermissions, exists := RolePermissions[role]
+func CheckPermission(role types.Role, permission Permission, userID string, resourceOwnerID string) bool {
+	if role == types.RoleAdmin {
+		return true
+	}
+
+	permConfig, exists := RolePermissionConfig[role]
 	if !exists {
 		return false
 	}
 
-	if len(requiredPermissions) == 0 {
+	accessType, exists := permConfig[permission]
+	if !exists {
+		return false
+	}
+
+	switch accessType {
+	case AccessFull:
 		return true
+	case AccessOwn:
+		return userID == resourceOwnerID
+	case AccessNone:
+		return false
+	default:
+		return false
 	}
-
-	grantedSet := make(map[Permission]bool)
-	for _, p := range grantedPermissions {
-		grantedSet[p] = true
-	}
-
-	for _, required := range requiredPermissions {
-		if !grantedSet[required] {
-			// Eğer GEREKLİ izinlerden BİR TANESİ BİLE role atanmamışsa, false dön.
-			return false
-		}
-	}
-
-	return true
 }
