@@ -12,6 +12,9 @@ main
 tmp
 build
 bin
+/database/backups
+/database/backup
+
 
 *.dll
 *.so

@@ -1,4 +1,4 @@
-.PHONY: build run dev clean kill pull help db up down force
+.PHONY: build run dev clean kill pull help migrate-db migrate-build migrate-up migrate-down migrate-up-all migrate-down-all migrate-goto migrate-force migrate-version migrate-clean
 
 # Değişkenler
 PORT=8080
@@ -8,6 +8,7 @@ AIR_PATH=$(HOME)/go/bin/air
 MIGRATE_TOOL_SRC := ./cmd/migrate/main.go
 MIGRATE_TOOL_BIN := ./bin/migrate_tool
 MIGRATIONS_PATH := ./database/migrations
+BACKUP_PATH := ./database/backups
 
 # Ana komutlar
 build:
@@ -106,6 +107,20 @@ migrate-clean:
 	@rm -f ${MIGRATE_TOOL_BIN}
 	@echo ">> Clean completed."
 
+# Backup database
+migrate-backup-pull: migrate-build
+	@echo ">> Migration: Backup Pull (Creating database backup)"
+	@# BACKUP_PATH environment değişkeninin migrate_tool tarafından okunabilmesi için export ediyoruz
+	@export BACKUP_PATH=$(BACKUP_PATH); \
+	 ${MIGRATE_TOOL_BIN} backup-pull
+
+# Restore database from latest backup
+migrate-backup-push: migrate-build
+	@echo ">> Migration: Backup Push (Restoring from latest backup)"
+	@# BACKUP_PATH environment değişkeninin migrate_tool tarafından okunabilmesi için export ediyoruz
+	@export BACKUP_PATH=$(BACKUP_PATH); \
+	 ${MIGRATE_TOOL_BIN} backup-push
+
 # Yardım
 help:
 	@echo "Available commands:"
@@ -128,3 +143,6 @@ help:
 	@echo "  make migrate-force V=<version> - Force migration to <version> (use with caution!)"
 	@echo "  make migrate-version     - Show the current migration version"
 	@echo "  make migrate-clean       - Clean built files"
+	@echo "  make migrate-backup-pull  - Create a backup of the current database"
+	@echo "  make migrate-backup-push  - Restore the database from the latest backup (use with caution!)"
+	@echo "  make migrate-clean        - Clean built files"
