@@ -36,7 +36,7 @@ func AuthMiddleware(ur *UserRepository.Repository, tr *TokenRepository.Repositor
 			return
 		}
 
-		c.Set("user_id", claims.UniqueID)
+		c.Set("user_id", claims.ID)
 		c.Set("username", claims.Username)
 		c.Set("email", claims.Email)
 		c.Set("role", claims.Role)
@@ -89,7 +89,7 @@ func handleTokenRenewal(c *gin.Context, ur *UserRepository.Repository, tr *Token
 
 	// 6. Create token claims
 	tokenClaims := types.TokenClaims{
-		UniqueID: user.UniqueID,
+		ID:       user.ID,
 		Username: user.Username,
 		Email:    user.Email,
 		Role:     user.Membership,
@@ -126,7 +126,7 @@ func handleTokenRenewal(c *gin.Context, ur *UserRepository.Repository, tr *Token
 	)
 
 	// 10. Add user information to the context
-	c.Set("user_id", user.UniqueID)
+	c.Set("user_id", user.ID)
 	c.Set("username", user.Username)
 	c.Set("email", user.Email)
 	c.Set("role", user.Membership)

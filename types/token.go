@@ -1,11 +1,15 @@
 package types
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // Table Model (database/migrations/00001.auth.up.sql)
 type RefreshToken struct {
-	ID            int64     `db:"id" json:"id"`
-	UserID        int64     `db:"user_id" json:"userId"`
+	ID            uuid.UUID `db:"id" json:"id"`
+	UserID        uuid.UUID `db:"user_id" json:"userId"`
 	UserEmail     string    `db:"user_email" json:"userEmail"`
 	UserUsername  string    `db:"user_username" json:"userUsername"`
 	Token         string    `db:"token" json:"token"`
@@ -19,7 +23,7 @@ type RefreshToken struct {
 }
 
 type TokenCreateRequest struct {
-	UserID       int64     `db:"user_id" json:"userId"`
+	UserID       uuid.UUID `db:"user_id" json:"userId"`
 	UserEmail    string    `db:"user_email" json:"userEmail"`
 	UserUsername string    `db:"user_username" json:"userUsername"`
 	Token        string    `db:"token" json:"token"`
@@ -30,8 +34,8 @@ type TokenCreateRequest struct {
 
 // Information to be carried in JWT
 type TokenClaims struct {
-	UniqueID string `json:"uniqueId"`
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	Role     Role   `json:"role"`
+	ID       uuid.UUID `json:"uniqueId"`
+	Username string    `json:"username"`
+	Email    string    `json:"email"`
+	Role     Role      `json:"role"`
 }

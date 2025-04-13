@@ -1,6 +1,7 @@
 package TokenRepository
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/okanay/backend-blog-guideofdubai/types"
@@ -16,6 +17,7 @@ func (r *Repository) CreateRefreshToken(request types.TokenCreateRequest) (types
 
 	err := utils.ScanStructByDBTags(row, &token)
 	if err != nil {
+		fmt.Println(err.Error())
 		return token, err
 	}
 

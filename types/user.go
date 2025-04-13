@@ -1,6 +1,10 @@
 package types
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // UserStatus - user status enum type
 type UserStatus string
@@ -22,8 +26,7 @@ const (
 
 // Table Model (database/migrations/00001.auth.up.sql)
 type User struct {
-	ID             int64      `db:"id" json:"id"`
-	UniqueID       string     `db:"unique_id" json:"uniqueId"`
+	ID             uuid.UUID  `db:"id" json:"id"`
 	Email          string     `db:"email" json:"email"`
 	Username       string     `db:"username" json:"username"`
 	HashedPassword string     `db:"hashed_password" json:"-"`
@@ -38,7 +41,7 @@ type User struct {
 
 // UserProfileResponse - secure model to return user profile
 type UserProfileResponse struct {
-	ID            string     `json:"id"`
+	ID            uuid.UUID  `json:"id"`
 	Username      string     `json:"username"`
 	Email         string     `json:"email"`
 	Membership    Role       `json:"membership"`

@@ -19,19 +19,16 @@ type JWTClaims struct {
 
 // GenerateAccessToken, kullanıcı bilgileriyle yeni bir access token oluşturur
 func GenerateAccessToken(claims types.TokenClaims) (string, error) {
-	// JWT için secret key'i çevresel değişkenlerden al
 	secretKey := os.Getenv("JWT_ACCESS_SECRET")
 	if secretKey == "" {
 		return "", errors.New("JWT_ACCESS_SECRET environment variable is not set")
 	}
 
-	// utils/token.go - GenerateAccessToken içinde DOĞRU KULLANIM
 	expiryDuration := configs.ACCESS_TOKEN_DURATION // Doğrudan time.Duration'ı al
 
-	// ...
 	tokenClaims := JWTClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiryDuration)), // DOĞRU: Sadece expiryDuration eklenir.
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiryDuration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
 			Issuer:    configs.JWT_ISSUER,
@@ -40,10 +37,8 @@ func GenerateAccessToken(claims types.TokenClaims) (string, error) {
 		TokenClaims: claims,
 	}
 
-	// JWT token'ı oluştur
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, tokenClaims)
 
-	// Token'ı imzala
 	signedToken, err := token.SignedString([]byte(secretKey))
 	if err != nil {
 		return "", fmt.Errorf("failed to sign token: %w", err)

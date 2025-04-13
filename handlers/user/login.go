@@ -62,7 +62,7 @@ func (h *Handler) Login(c *gin.Context) {
 
 	// Create token claims
 	tokenClaims := types.TokenClaims{
-		UniqueID: user.UniqueID,
+		ID:       user.ID,
 		Username: user.Username,
 		Email:    user.Email,
 		Role:     user.Membership,
@@ -141,7 +141,7 @@ func (h *Handler) Login(c *gin.Context) {
 
 	// Return user information securely
 	userProfile := types.UserProfileResponse{
-		ID:            user.UniqueID,
+		ID:            user.ID,
 		Username:      user.Username,
 		Email:         user.Email,
 		Membership:    user.Membership,
