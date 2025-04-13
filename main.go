@@ -6,12 +6,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"github.com/okanay/backend-blog-guideofdubai/configs"
 	c "github.com/okanay/backend-blog-guideofdubai/configs"
 	db "github.com/okanay/backend-blog-guideofdubai/database"
 	"github.com/okanay/backend-blog-guideofdubai/handlers"
 	UserHandler "github.com/okanay/backend-blog-guideofdubai/handlers/user"
-	"github.com/okanay/backend-blog-guideofdubai/middlewares"
+	mw "github.com/okanay/backend-blog-guideofdubai/middlewares"
 	TokenRepository "github.com/okanay/backend-blog-guideofdubai/repositories/token"
 	UserRepository "github.com/okanay/backend-blog-guideofdubai/repositories/user"
 )
@@ -47,7 +46,7 @@ func main() {
 	router.MaxMultipartMemory = 10 << 20 // MB : 10 MB
 
 	auth := router.Group("/auth")
-	auth.Use(middlewares.AuthMiddleware(ur, tr))
+	auth.Use(mw.AuthMiddleware(ur, tr))
 
 	// Global Routes
 	router.GET("/", mh.Index)
@@ -57,7 +56,7 @@ func main() {
 	router.POST("/login", uh.Login)
 	router.POST("/register", uh.Register)
 
-	auth.GET("/blog/create", middlewares.PermissionMiddleware(configs.PermissionCreatePost), func(c *gin.Context) {
+	auth.GET("/blog/create", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "Test Created"})
 	})
 
