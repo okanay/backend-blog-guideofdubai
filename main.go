@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/okanay/backend-blog-guideofdubai/configs"
 	c "github.com/okanay/backend-blog-guideofdubai/configs"
 	db "github.com/okanay/backend-blog-guideofdubai/database"
 	"github.com/okanay/backend-blog-guideofdubai/handlers"
@@ -34,7 +35,7 @@ func main() {
 	tr := TokenRepository.NewRepository(sqlDB)
 
 	// Handler Initialization
-	mainHandler := handlers.NewHandler()
+	mh := handlers.NewHandler()
 	uh := UserHandler.NewHandler(ur, tr)
 
 	// Router Initialize
@@ -49,12 +50,16 @@ func main() {
 	auth.Use(middlewares.AuthMiddleware(ur, tr))
 
 	// Global Routes
-	auth.GET("/test", mainHandler.Index)
-	router.NoRoute(mainHandler.NotFound)
+	router.GET("/", mh.Index)
+	router.NoRoute(mh.NotFound)
 
 	// User Routes
 	router.POST("/login", uh.Login)
 	router.POST("/register", uh.Register)
+
+	auth.GET("/blog/create", middlewares.PermissionMiddleware(configs.PermissionCreatePost), func(c *gin.Context) {
+		c.JSON(200, gin.H{"message": "Test Created"})
+	})
 
 	// Start Server
 	err = router.Run(":" + os.Getenv("PORT"))
