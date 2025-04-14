@@ -2,33 +2,39 @@ package utils
 
 import (
 	"database/sql"
+	"fmt"
 	"reflect"
 )
 
-func ScanStructByDBTags(rows *sql.Row, dest interface{}) error {
+func ScanStructByDBTags(rows *sql.Rows, dest any) error {
 	v := reflect.ValueOf(dest).Elem()
-	fields := make([]interface{}, v.NumField())
+	t := v.Type()
 
-	for i := 0; i < v.NumField(); i++ {
-		tag := v.Type().Field(i).Tag.Get("db")
+	columns, err := rows.Columns()
+	if err != nil {
+		return fmt.Errorf("db tags not found: %w", err)
+	}
+
+	values := make([]any, len(columns))
+
+	tagToField := make(map[string]int)
+	for i := range make([]int, t.NumField()) {
+		field := t.Field(i)
+		tag := field.Tag.Get("db")
 		if tag != "" && tag != "-" {
-			fields[i] = v.Field(i).Addr().Interface()
+			tagToField[tag] = i
 		}
 	}
 
-	return rows.Scan(fields...)
-}
-
-func ScanStructByDBTagsForRows(rows *sql.Rows, dest interface{}) error {
-	v := reflect.ValueOf(dest).Elem()
-	fields := make([]interface{}, v.NumField())
-
-	for i := 0; i < v.NumField(); i++ {
-		tag := v.Type().Field(i).Tag.Get("db")
-		if tag != "" && tag != "-" {
-			fields[i] = v.Field(i).Addr().Interface()
+	for i, colName := range columns {
+		fieldIndex, ok := tagToField[colName]
+		if !ok {
+			values[i] = new(any)
+			continue
 		}
+
+		values[i] = v.Field(fieldIndex).Addr().Interface()
 	}
 
-	return rows.Scan(fields...)
+	return rows.Scan(values...)
 }

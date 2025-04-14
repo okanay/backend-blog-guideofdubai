@@ -1,6 +1,7 @@
 package TokenRepository
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/okanay/backend-blog-guideofdubai/types"
@@ -13,9 +14,18 @@ func (r *Repository) SelectRefreshTokenByToken(token string) (types.RefreshToken
 	var refreshToken types.RefreshToken
 
 	query := `SELECT * FROM refresh_tokens WHERE token = $1 AND is_revoked = FALSE`
+	rows, err := r.db.Query(query, token)
+	defer rows.Close()
 
-	row := r.db.QueryRow(query, token)
-	err := utils.ScanStructByDBTags(row, &refreshToken)
+	if err != nil {
+		return refreshToken, err
+	}
+
+	if !rows.Next() {
+		return refreshToken, fmt.Errorf("No rows returned after select")
+	}
+
+	err = utils.ScanStructByDBTags(rows, &token)
 	if err != nil {
 		return refreshToken, err
 	}
@@ -29,17 +39,21 @@ func (r *Repository) SelectActiveTokensByUserID(userID int64) ([]types.RefreshTo
 	var tokens []types.RefreshToken
 
 	query := `SELECT * FROM refresh_tokens WHERE user_id = $1 AND is_revoked = FALSE AND expires_at > NOW()`
-
 	rows, err := r.db.Query(query, userID)
+	defer rows.Close()
+
 	if err != nil {
 		return tokens, err
 	}
-	defer rows.Close()
+
+	if !rows.Next() {
+		return tokens, fmt.Errorf("No rows returned after select")
+	}
 
 	for rows.Next() {
 		var token types.RefreshToken
-		if err := utils.ScanStructByDBTagsForRows(rows, &token); err != nil {
-			return tokens, err
+		if err := utils.ScanStructByDBTags(rows, &token); err != nil {
+			continue
 		}
 		tokens = append(tokens, token)
 	}

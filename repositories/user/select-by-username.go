@@ -1,6 +1,7 @@
 package UserRepository
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/okanay/backend-blog-guideofdubai/types"
@@ -12,10 +13,18 @@ func (r *Repository) SelectByUsername(username string) (types.User, error) {
 
 	var user types.User
 
-	query := `SELECT * FROM users WHERE username = $1`
+	query := `SELECT * FROM users WHERE username = $1 LIMIT 1`
+	rows, err := r.db.Query(query, username)
+	defer rows.Close()
+	if err != nil {
+		return user, err
+	}
 
-	row := r.db.QueryRow(query, username)
-	err := utils.ScanStructByDBTags(row, &user)
+	if !rows.Next() {
+		return user, fmt.Errorf("No rows returned after select")
+	}
+
+	err = utils.ScanStructByDBTags(rows, &user)
 	if err != nil {
 		return user, err
 	}
