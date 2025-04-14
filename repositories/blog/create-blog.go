@@ -4,32 +4,26 @@ func (r *Repository) CreateBlogPost() {
 
 }
 
-// Ana blog post tablosuna kayıt ekle ve oluşturulan ID'yi döndür
-func (r *Repository) createMainBlogPost() {
+func (r *Repository) CreateBlogSkeleton() {
 
 }
 
-// Blog metadata tablosuna kayıt ekle
-func (r *Repository) addBlogMetadata() {
+func (r *Repository) AddBlogMetadataToSkeleton() {
 
 }
 
-// Blog content tablosuna kayıt ekle
-func (r *Repository) addBlogContent() {
+func (r *Repository) AddBlogContentToSkeleton() {
 
 }
 
-// Blog istatistikleri için başlangıç kaydı oluştur
-func (r *Repository) initializeBlogStats() {
+func (r *Repository) AddBlogCategoriesToSkeleton() {
 
 }
 
-// Blog için kategorileri ekle
-func (r *Repository) addBlogCategories() {
+func (r *Repository) AddBlogTagsToSkeleton() {
 
 }
 
-// Blog için etiketleri ekle
-func (r *Repository) addBlogTags() {
+func (r *Repository) InitializeBlogStatsForSkeleton() {
 
 }
