@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS blog_posts (
     status blog_status DEFAULT 'draft' NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW () NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW () NOT NULL,
-    published_at TIMESTAMPTZ,
+    published_at TIMESTAMPTZ DEFAULT NULL,
     UNIQUE (slug, language)
 );
 
@@ -51,8 +51,8 @@ CREATE TABLE IF NOT EXISTS blog_stats (
 
 -- CATEGORIES TABLE
 CREATE TABLE IF NOT EXISTS categories (
-    name TEXT NOT NULL,
-    value TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL UNIQUE,
+    value TEXT NOT NULL,
     user_id UUID NOT NULL REFERENCES users (id),
     created_at TIMESTAMPTZ DEFAULT NOW () NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW () NOT NULL,
@@ -61,8 +61,8 @@ CREATE TABLE IF NOT EXISTS categories (
 
 -- TAGS TABLE
 CREATE TABLE IF NOT EXISTS tags (
-    name TEXT NOT NULL,
-    value TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL UNIQUE,
+    value TEXT NOT NULL,
     user_id UUID NOT NULL REFERENCES users (id),
     created_at TIMESTAMPTZ DEFAULT NOW () NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW () NOT NULL,
@@ -72,15 +72,15 @@ CREATE TABLE IF NOT EXISTS tags (
 -- BLOG-CATEGORY RELATIONSHIP TABLE
 CREATE TABLE IF NOT EXISTS blog_categories (
     blog_id UUID REFERENCES blog_posts (id) ON DELETE CASCADE,
-    category_value TEXT REFERENCES categories (value) ON DELETE CASCADE,
-    PRIMARY KEY (blog_id, category_value)
+    category_name TEXT REFERENCES categories (name) ON DELETE CASCADE,
+    PRIMARY KEY (blog_id, category_name)
 );
 
 -- BLOG-TAG RELATIONSHIP TABLE
 CREATE TABLE IF NOT EXISTS blog_tags (
     blog_id UUID REFERENCES blog_posts (id) ON DELETE CASCADE,
-    tag_value TEXT REFERENCES tags (value) ON DELETE CASCADE,
-    PRIMARY KEY (blog_id, tag_value)
+    tag_name TEXT REFERENCES tags (name) ON DELETE CASCADE,
+    PRIMARY KEY (blog_id, tag_name)
 );
 
 CREATE INDEX idx_blog_posts_group_id ON blog_posts (group_id);

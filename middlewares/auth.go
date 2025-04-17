@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/okanay/backend-blog-guideofdubai/configs"
 	TokenRepository "github.com/okanay/backend-blog-guideofdubai/repositories/token"
 	UserRepository "github.com/okanay/backend-blog-guideofdubai/repositories/user"
@@ -36,11 +37,7 @@ func AuthMiddleware(ur *UserRepository.Repository, tr *TokenRepository.Repositor
 			return
 		}
 
-		c.Set("user_id", claims.ID)
-		c.Set("username", claims.Username)
-		c.Set("email", claims.Email)
-		c.Set("role", claims.Role)
-
+		setContextValues(c, claims.ID, claims.Username, claims.Email, claims.Role)
 		// 4. Continue processing
 		c.Next()
 	}
@@ -126,11 +123,7 @@ func handleTokenRenewal(c *gin.Context, ur *UserRepository.Repository, tr *Token
 	)
 
 	// 10. Add user information to the context
-	c.Set("user_id", user.ID)
-	c.Set("username", user.Username)
-	c.Set("email", user.Email)
-	c.Set("role", user.Membership)
-
+	setContextValues(c, user.ID, user.Username, user.Email, user.Membership)
 	// 11. Continue processing
 	c.Next()
 }
@@ -148,4 +141,11 @@ func handleUnauthorized(c *gin.Context, message string) {
 		"message": message,
 	})
 	c.Abort()
+}
+
+func setContextValues(c *gin.Context, userID uuid.UUID, username string, email string, role types.Role) {
+	c.Set("user_id", userID)
+	c.Set("username", username)
+	c.Set("email", email)
+	c.Set("role", role)
 }

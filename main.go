@@ -9,8 +9,10 @@ import (
 	c "github.com/okanay/backend-blog-guideofdubai/configs"
 	db "github.com/okanay/backend-blog-guideofdubai/database"
 	"github.com/okanay/backend-blog-guideofdubai/handlers"
+	BlogHandler "github.com/okanay/backend-blog-guideofdubai/handlers/blog"
 	UserHandler "github.com/okanay/backend-blog-guideofdubai/handlers/user"
 	mw "github.com/okanay/backend-blog-guideofdubai/middlewares"
+	BlogRepository "github.com/okanay/backend-blog-guideofdubai/repositories/blog"
 	TokenRepository "github.com/okanay/backend-blog-guideofdubai/repositories/token"
 	UserRepository "github.com/okanay/backend-blog-guideofdubai/repositories/user"
 )
@@ -32,10 +34,12 @@ func main() {
 	// Repository Initialization
 	ur := UserRepository.NewRepository(sqlDB)
 	tr := TokenRepository.NewRepository(sqlDB)
+	br := BlogRepository.NewRepository(sqlDB)
 
 	// Handler Initialization
 	mh := handlers.NewHandler()
 	uh := UserHandler.NewHandler(ur, tr)
+	bh := BlogHandler.NewHandler(br)
 
 	// Router Initialize
 	router := gin.Default()
@@ -55,6 +59,9 @@ func main() {
 	// User Routes
 	router.POST("/login", uh.Login)
 	router.POST("/register", uh.Register)
+
+	// Blog Routes
+	auth.POST("/blog", bh.CreateBlogPost)
 
 	// Start Server
 	err = router.Run(":" + os.Getenv("PORT"))

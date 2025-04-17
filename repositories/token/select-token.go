@@ -12,22 +12,22 @@ func (r *Repository) SelectRefreshTokenByToken(token string) (types.RefreshToken
 	defer utils.TimeTrack(time.Now(), "Token -> Select Refresh Token By Token")
 
 	var refreshToken types.RefreshToken
-
 	query := `SELECT * FROM refresh_tokens WHERE token = $1 AND is_revoked = FALSE`
+
 	rows, err := r.db.Query(query, token)
+	if err != nil {
+		return refreshToken, fmt.Errorf("token sorgulanırken hata: %w", err)
+	}
 	defer rows.Close()
 
-	if err != nil {
-		return refreshToken, err
-	}
-
 	if !rows.Next() {
-		return refreshToken, fmt.Errorf("No rows returned after select")
+		return refreshToken, fmt.Errorf("token bulunamadı")
 	}
 
-	err = utils.ScanStructByDBTags(rows, &token)
+	// Burada kritik hata vardı - &token yerine &refreshToken kullanılmalı
+	err = utils.ScanStructByDBTags(rows, &refreshToken)
 	if err != nil {
-		return refreshToken, err
+		return refreshToken, fmt.Errorf("token verileri okunurken hata: %w", err)
 	}
 
 	return refreshToken, nil
