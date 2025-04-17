@@ -5,7 +5,6 @@ CREATE TYPE blog_status AS ENUM ('draft', 'published', 'archived', 'deleted');
 CREATE TABLE IF NOT EXISTS blog_posts (
     id UUID DEFAULT uuid_generate_v4 () PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users (id),
-    last_editor_id UUID REFERENCES users (id),
     group_id TEXT NOT NULL,
     slug TEXT NOT NULL,
     language TEXT NOT NULL,
@@ -19,8 +18,7 @@ CREATE TABLE IF NOT EXISTS blog_posts (
 
 -- METADATA TABLE
 CREATE TABLE IF NOT EXISTS blog_metadata (
-    id UUID DEFAULT uuid_generate_v4 () PRIMARY KEY,
-    blog_id UUID NOT NULL REFERENCES blog_posts (id) ON DELETE CASCADE,
+    id UUID NOT NULL REFERENCES blog_posts (id) ON DELETE CASCADE PRIMARY KEY,
     title TEXT NOT NULL,
     description TEXT,
     image TEXT,
@@ -30,8 +28,7 @@ CREATE TABLE IF NOT EXISTS blog_metadata (
 
 -- CONTENT TABLE
 CREATE TABLE IF NOT EXISTS blog_content (
-    id UUID DEFAULT uuid_generate_v4 () PRIMARY KEY,
-    blog_id UUID NOT NULL REFERENCES blog_posts (id) ON DELETE CASCADE,
+    id UUID NOT NULL REFERENCES blog_posts (id) ON DELETE CASCADE PRIMARY KEY,
     title TEXT NOT NULL,
     description TEXT,
     read_time INTEGER DEFAULT 0,
@@ -42,8 +39,7 @@ CREATE TABLE IF NOT EXISTS blog_content (
 
 -- STATISTICS TABLE
 CREATE TABLE IF NOT EXISTS blog_stats (
-    id UUID DEFAULT uuid_generate_v4 () PRIMARY KEY,
-    blog_id UUID NOT NULL REFERENCES blog_posts (id) ON DELETE CASCADE,
+    id UUID NOT NULL REFERENCES blog_posts (id) ON DELETE CASCADE PRIMARY KEY,
     views INTEGER DEFAULT 0,
     likes INTEGER DEFAULT 0,
     shares INTEGER DEFAULT 0,
@@ -95,11 +91,11 @@ CREATE INDEX idx_blog_posts_status ON blog_posts (status);
 
 CREATE INDEX idx_blog_posts_language ON blog_posts (language);
 
-CREATE INDEX idx_blog_metadata_blog_id ON blog_metadata (blog_id);
+CREATE INDEX idx_blog_metadata_blog_id ON blog_metadata (id);
 
-CREATE INDEX idx_blog_content_blog_id ON blog_content (blog_id);
+CREATE INDEX idx_blog_content_blog_id ON blog_content (id);
 
-CREATE INDEX idx_blog_stats_blog_id ON blog_stats (blog_id);
+CREATE INDEX idx_blog_stats_blog_id ON blog_stats (id);
 
 CREATE INDEX idx_blog_stats_views ON blog_stats (views);
 

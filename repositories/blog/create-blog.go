@@ -8,19 +8,19 @@ func (r *Repository) CreateBlogSkeleton() {
 
 }
 
-func (r *Repository) AddBlogMetadataToSkeleton() {
+func (r *Repository) CreateBlogMetadata() {
 
 }
 
-func (r *Repository) AddBlogContentToSkeleton() {
+func (r *Repository) CreateBlogContent() {
 
 }
 
-func (r *Repository) AddBlogCategoriesToSkeleton() {
+func (r *Repository) CreateBlogCategories() {
 
 }
 
-func (r *Repository) AddBlogTagsToSkeleton() {
+func (r *Repository) CreateBlogTags() {
 
 }
 

@@ -20,23 +20,21 @@ const (
 
 // BlogPost - main blog post structure
 type BlogPost struct {
-	ID           uuid.UUID  `json:"id" db:"id"`
-	UserID       uuid.UUID  `json:"userId" db:"user_id"`
-	LastEditorID uuid.UUID  `json:"lastEditorId" db:"last_editor_id"`
-	GroupID      string     `json:"groupId" db:"group_id"`
-	Slug         string     `json:"slug" db:"slug"`
-	Language     string     `json:"language" db:"language"`
-	Featured     bool       `json:"featured" db:"featured"`
-	Status       BlogStatus `json:"status" db:"status"`
-	CreatedAt    time.Time  `json:"createdAt" db:"created_at"`
-	UpdatedAt    time.Time  `json:"updatedAt" db:"updated_at"`
-	PublishedAt  time.Time  `json:"publishedAt" db:"published_at"`
+	ID          uuid.UUID  `json:"id" db:"id"`
+	UserID      uuid.UUID  `json:"userId" db:"user_id"`
+	GroupID     string     `json:"groupId" db:"group_id"`
+	Slug        string     `json:"slug" db:"slug"`
+	Language    string     `json:"language" db:"language"`
+	Featured    bool       `json:"featured" db:"featured"`
+	Status      BlogStatus `json:"status" db:"status"`
+	CreatedAt   time.Time  `json:"createdAt" db:"created_at"`
+	UpdatedAt   time.Time  `json:"updatedAt" db:"updated_at"`
+	PublishedAt time.Time  `json:"publishedAt" db:"published_at"`
 }
 
 // BlogMetadata - blog metadata
 type BlogMetadata struct {
 	ID          uuid.UUID `json:"id" db:"id"`
-	BlogID      uuid.UUID `json:"blogId" db:"blog_id"`
 	Title       string    `json:"title" db:"title"`
 	Description string    `json:"description" db:"description"`
 	Image       string    `json:"image" db:"image"`
@@ -47,7 +45,6 @@ type BlogMetadata struct {
 // BlogContent - blog content
 type BlogContent struct {
 	ID          uuid.UUID `json:"id" db:"id"`
-	BlogID      uuid.UUID `json:"blogId" db:"blog_id"`
 	Title       string    `json:"title" db:"title"`
 	Description string    `json:"description" db:"description"`
 	ReadTime    int       `json:"readTime" db:"read_time"`
@@ -59,7 +56,6 @@ type BlogContent struct {
 // BlogStats - blog statistics
 type BlogStats struct {
 	ID           uuid.UUID  `json:"id" db:"id"`
-	BlogID       uuid.UUID  `json:"blogId" db:"blog_id"`
 	Views        int        `json:"views" db:"views"`
 	Likes        int        `json:"likes" db:"likes"`
 	Shares       int        `json:"shares" db:"shares"`
