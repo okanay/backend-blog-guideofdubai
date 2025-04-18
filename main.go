@@ -61,12 +61,16 @@ func main() {
 	router.POST("/register", uh.Register)
 
 	// Blog Routes
+	router.POST("/blog", bh.SelectBlogByGroupID)
+
 	auth.GET("/blog/tags", bh.SelectAllTags)
 	auth.GET("/blog/categories", bh.SelectAllCategories)
 
 	auth.POST("/blog", bh.CreateBlogPost)
 	auth.POST("/blog/tag", bh.CreateBlogTag)
 	auth.POST("/blog/category", bh.CreateBlogCategory)
+
+	auth.DELETE("/blog/:id", bh.DeleteBlogByID)
 
 	// Start Server
 	err = router.Run(":" + os.Getenv("PORT"))
