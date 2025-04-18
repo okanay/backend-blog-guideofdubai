@@ -10,72 +10,67 @@ import (
 	"github.com/okanay/backend-blog-guideofdubai/utils"
 )
 
-// CreateBlogPost, blog postunu ve ilişkili bileşenlerini (metadata, content, stats) oluşturur
 func (r *Repository) CreateBlogPost(input types.BlogPostCreateInput, userID uuid.UUID) (*types.BlogPostView, error) {
 	defer utils.TimeTrack(time.Now(), "Blog -> Create Blog Post")
 
-	// Transaction başlat
 	tx, err := r.db.Begin()
 	if err != nil {
-		return nil, fmt.Errorf("transaction başlatılamadı: %w", err)
+		return nil, fmt.Errorf("failed to initiate transaction: %w", err)
 	}
 
-	// İşlem başarısız olursa rollback yap
 	defer func() {
 		if err != nil {
 			tx.Rollback()
 		}
 	}()
 
-	// 1. Blog iskeletini oluştur
+	// 1. Create blog skeleton
 	blogID, err := r.CreateBlogSkeleton(tx, input, userID)
 	if err != nil {
-		return nil, fmt.Errorf("blog iskeleti oluşturulamadı: %w", err)
+		return nil, fmt.Errorf("failed to create blog skeleton: %w", err)
 	}
 
-	// 2. Blog metadata'sını oluştur
+	// 2. Create blog metadata
 	err = r.CreateBlogMetadata(tx, blogID, input.Metadata)
 	if err != nil {
-		return nil, fmt.Errorf("blog metadata oluşturulamadı: %w", err)
+		return nil, fmt.Errorf("failed to create blog metadata: %w", err)
 	}
 
-	// 3. Blog içeriğini oluştur
+	// 3. Create blog content
 	err = r.CreateBlogContent(tx, blogID, input.Content)
 	if err != nil {
-		return nil, fmt.Errorf("blog içeriği oluşturulamadı: %w", err)
+		return nil, fmt.Errorf("failed to create blog content: %w", err)
 	}
 
-	// 4. Blog istatistiklerini başlat
+	// 4. Initialize blog statistics
 	err = r.InitializeBlogStatsForSkeleton(tx, blogID)
 	if err != nil {
-		return nil, fmt.Errorf("blog istatistikleri başlatılamadı: %w", err)
+		return nil, fmt.Errorf("failed to initialize blog statistics: %w", err)
 	}
 
-	// 5. Kategorileri oluştur ve blog ile ilişkilendir
+	// 5. Create and associate categories
 	if len(input.Categories) > 0 {
 		err = r.CreateBlogCategories(tx, blogID, input.Categories)
 		if err != nil {
-			return nil, fmt.Errorf("blog kategorileri oluşturulamadı: %w", err)
+			return nil, fmt.Errorf("failed to create blog categories: %w", err)
 		}
 	}
 
-	// 6. Etiketleri oluştur ve blog ile ilişkilendir
+	// 6. Create and associate tags
 	if len(input.Tags) > 0 {
 		err = r.CreateBlogTags(tx, blogID, input.Tags)
 		if err != nil {
-			return nil, fmt.Errorf("blog etiketleri oluşturulamadı: %w", err)
+			return nil, fmt.Errorf("failed to create blog tags: %w", err)
 		}
 	}
 
-	// Transaction'ı commit et
 	if err = tx.Commit(); err != nil {
-		return nil, fmt.Errorf("transaction commit edilemedi: %w", err)
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	// Oluşturulan blog postunu getir
 	blogPost, err := r.SelectBlogByID(blogID)
 	if err != nil {
-		return nil, fmt.Errorf("oluşturulan blog postu getirilemedi: %w", err)
+		return nil, fmt.Errorf("failed to retrieve created blog post: %w", err)
 	}
 
 	return blogPost, nil
@@ -85,8 +80,6 @@ func (r *Repository) CreateBlogSkeleton(tx *sql.Tx, input types.BlogPostCreateIn
 	defer utils.TimeTrack(time.Now(), "Blog -> Create Blog Skeleton")
 
 	var blogID uuid.UUID
-
-	// Blog durumu kontrol et - varsayılan olarak taslak
 	status := types.BlogStatusDraft
 
 	query := `
@@ -111,7 +104,7 @@ func (r *Repository) CreateBlogSkeleton(tx *sql.Tx, input types.BlogPostCreateIn
 	).Scan(&blogID)
 
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("blog iskeleti eklenirken hata: %w", err)
+		return uuid.Nil, fmt.Errorf("error creating blog skeleton: %w", err)
 	}
 
 	return blogID, nil
@@ -140,7 +133,7 @@ func (r *Repository) CreateBlogMetadata(tx *sql.Tx, blogID uuid.UUID, metadata t
 	)
 
 	if err != nil {
-		return fmt.Errorf("blog metadata eklenirken hata: %w", err)
+		return fmt.Errorf("error creating blog metadata: %w", err)
 	}
 
 	return nil
@@ -170,7 +163,7 @@ func (r *Repository) CreateBlogContent(tx *sql.Tx, blogID uuid.UUID, content typ
 	)
 
 	if err != nil {
-		return fmt.Errorf("blog içeriği eklenirken hata: %w", err)
+		return fmt.Errorf("error creating blog content: %w", err)
 	}
 
 	return nil
@@ -179,7 +172,6 @@ func (r *Repository) CreateBlogContent(tx *sql.Tx, blogID uuid.UUID, content typ
 func (r *Repository) CreateBlogCategories(tx *sql.Tx, blogID uuid.UUID, categories []string) error {
 	defer utils.TimeTrack(time.Now(), "Blog -> Create Blog Categories")
 
-	// Her kategori için ilişkilendirme ekle
 	for _, categoryValue := range categories {
 		query := `
 			INSERT INTO blog_categories (blog_id, category_name)
@@ -189,7 +181,7 @@ func (r *Repository) CreateBlogCategories(tx *sql.Tx, blogID uuid.UUID, categori
 
 		_, err := tx.Exec(query, blogID, categoryValue)
 		if err != nil {
-			return fmt.Errorf("blog kategorisi ilişkilendirilirken hata (%s): %w", categoryValue, err)
+			return fmt.Errorf("error associating blog category (%s): %w", categoryValue, err)
 		}
 	}
 
@@ -199,7 +191,6 @@ func (r *Repository) CreateBlogCategories(tx *sql.Tx, blogID uuid.UUID, categori
 func (r *Repository) CreateBlogTags(tx *sql.Tx, blogID uuid.UUID, tags []string) error {
 	defer utils.TimeTrack(time.Now(), "Blog -> Create Blog Tags")
 
-	// Her etiket için ilişkilendirme ekle
 	for _, tagValue := range tags {
 		query := `
 			INSERT INTO blog_tags (blog_id, tag_name)
@@ -209,7 +200,7 @@ func (r *Repository) CreateBlogTags(tx *sql.Tx, blogID uuid.UUID, tags []string)
 
 		_, err := tx.Exec(query, blogID, tagValue)
 		if err != nil {
-			return fmt.Errorf("blog etiketi ilişkilendirilirken hata (%s): %w", tagValue, err)
+			return fmt.Errorf("error associating blog tag (%s): %w", tagValue, err)
 		}
 	}
 
@@ -240,7 +231,7 @@ func (r *Repository) InitializeBlogStatsForSkeleton(tx *sql.Tx, blogID uuid.UUID
 	)
 
 	if err != nil {
-		return fmt.Errorf("blog istatistikleri başlatılırken hata: %w", err)
+		return fmt.Errorf("error initializing blog statistics: %w", err)
 	}
 
 	return nil

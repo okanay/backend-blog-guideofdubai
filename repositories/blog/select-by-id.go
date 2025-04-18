@@ -42,14 +42,11 @@ func (r *Repository) SelectBlogByID(blogID uuid.UUID) (*types.BlogPostView, erro
 		tagsCh <- tags
 	}()
 
-	// Goroutinelerin tamamlanmasını bekle
 	wg.Wait()
 
-	// Kanalları kapat
 	close(categoriesCh)
 	close(tagsCh)
 
-	// Sonuçları al
 	blogView.Content.Categories = <-categoriesCh
 	blogView.Content.Tags = <-tagsCh
 
@@ -61,7 +58,7 @@ func (r *Repository) SelectBlogBody(blogID uuid.UUID) (*types.BlogPostView, erro
 
 	query := `
         SELECT
-            -- Blog Post ana verileri
+            -- Blog Post primary data
             bp.id,
             bp.group_id,
             bp.slug,
@@ -72,18 +69,18 @@ func (r *Repository) SelectBlogBody(blogID uuid.UUID) (*types.BlogPostView, erro
             bp.updated_at,
             bp.published_at,
 
-            -- Metadata verileri
+            -- Metadata
             bm.title as meta_title,
             bm.description as meta_description,
             bm.image as meta_image,
 
-            -- Content verileri
+            -- Content
             bc.title as content_title,
             bc.description as content_description,
             bc.read_time,
             bc.html,
 
-            -- Stats verileri
+            -- Statistics
             bs.views,
             bs.likes,
             bs.shares,
@@ -131,12 +128,12 @@ func (r *Repository) SelectBlogBody(blogID uuid.UUID) (*types.BlogPostView, erro
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("blog bulunamadı: %w", err)
+			return nil, fmt.Errorf("blog post not found: %w", err)
 		}
-		return nil, fmt.Errorf("blog verisi alınırken hata: %w", err)
+		return nil, fmt.Errorf("error retrieving blog data: %w", err)
 	}
 
-	// NULL olabilen alanları kontrol et ve ata
+	// Handle nullable fields
 	if publishedAt.Valid {
 		blog.PublishedAt = publishedAt.Time
 	}
@@ -156,7 +153,7 @@ func (r *Repository) SelectBlogBody(blogID uuid.UUID) (*types.BlogPostView, erro
 		stats.LastViewedAt = &lastViewedAt.Time
 	}
 
-	// Alt yapıları ana yapıya bağla
+	// Assign sub-structures to main structure
 	blog.Metadata = metadata
 	blog.Content = content
 	blog.Stats = stats
@@ -178,20 +175,20 @@ func (r *Repository) SelectBlogCategories(blogID uuid.UUID) ([]types.CategoryVie
 
 	rows, err := r.db.Query(query, blogID)
 	if err != nil {
-		return categories, fmt.Errorf("blog kategorileri alınırken hata: %w", err)
+		return categories, fmt.Errorf("error retrieving blog categories: %w", err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		var category types.CategoryView
 		if err := rows.Scan(&category.Name, &category.Value); err != nil {
-			return categories, fmt.Errorf("kategori verileri okunurken hata: %w", err)
+			return categories, fmt.Errorf("error scanning category data: %w", err)
 		}
 		categories = append(categories, category)
 	}
 
 	if err = rows.Err(); err != nil {
-		return categories, fmt.Errorf("kategori satırları işlenirken hata: %w", err)
+		return categories, fmt.Errorf("error processing category rows: %w", err)
 	}
 
 	return categories, nil
@@ -211,20 +208,20 @@ func (r *Repository) SelectBlogTags(blogID uuid.UUID) ([]types.TagView, error) {
 
 	rows, err := r.db.Query(query, blogID)
 	if err != nil {
-		return tags, fmt.Errorf("blog etiketleri alınırken hata: %w", err)
+		return tags, fmt.Errorf("error retrieving blog tags: %w", err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		var tag types.TagView
 		if err := rows.Scan(&tag.Name, &tag.Value); err != nil {
-			return tags, fmt.Errorf("etiket verileri okunurken hata: %w", err)
+			return tags, fmt.Errorf("error scanning tag data: %w", err)
 		}
 		tags = append(tags, tag)
 	}
 
 	if err = rows.Err(); err != nil {
-		return tags, fmt.Errorf("etiket satırları işlenirken hata: %w", err)
+		return tags, fmt.Errorf("error processing tag rows: %w", err)
 	}
 
 	return tags, nil
@@ -255,7 +252,7 @@ func (r *Repository) SelectBlogBase(blogID uuid.UUID) (types.BlogPost, error) {
 		&publishedAt,
 	)
 	if err != nil {
-		return blog, fmt.Errorf("blog postu alınırken hata: %w", err)
+		return blog, fmt.Errorf("error retrieving blog post base data: %w", err)
 	}
 
 	if publishedAt.Valid {
@@ -286,7 +283,7 @@ func (r *Repository) SelectBlogMetadata(blogID uuid.UUID) (types.MetadataView, e
 		&metaImage,
 	)
 	if err != nil {
-		return metadata, fmt.Errorf("blog metadatası alınırken hata: %w", err)
+		return metadata, fmt.Errorf("error retrieving blog metadata: %w", err)
 	}
 
 	if metaDesc.Valid {
@@ -319,7 +316,7 @@ func (r *Repository) SelectBlogContent(blogID uuid.UUID) (types.ContentView, err
 		&content.HTML,
 	)
 	if err != nil {
-		return content, fmt.Errorf("blog içeriği alınırken hata: %w", err)
+		return content, fmt.Errorf("error retrieving blog content: %w", err)
 	}
 
 	if contentDesc.Valid {
@@ -350,7 +347,7 @@ func (r *Repository) SelectBlogStats(blogID uuid.UUID) (types.StatsView, error) 
 		&lastViewedAt,
 	)
 	if err != nil {
-		return stats, fmt.Errorf("blog istatistikleri alınırken hata: %w", err)
+		return stats, fmt.Errorf("error retrieving blog statistics: %w", err)
 	}
 
 	if lastViewedAt.Valid {

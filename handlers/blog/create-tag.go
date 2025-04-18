@@ -9,8 +9,8 @@ import (
 	"github.com/okanay/backend-blog-guideofdubai/utils"
 )
 
-func (h *Handler) CreateBlogPost(c *gin.Context) {
-	var request types.BlogPostCreateInput
+func (h *Handler) CreateBlogTag(c *gin.Context) {
+	var request types.TagInput
 
 	err := utils.ValidateRequest(c, &request)
 	if err != nil {
@@ -18,7 +18,7 @@ func (h *Handler) CreateBlogPost(c *gin.Context) {
 	}
 
 	userID := c.MustGet("user_id").(uuid.UUID)
-	blog, err := h.BlogRepository.CreateBlogPost(request, userID)
+	tag, err := h.BlogRepository.CreateBlogTag(request, userID)
 
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -30,6 +30,6 @@ func (h *Handler) CreateBlogPost(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,
-		"blog":    blog,
+		"tag":     tag,
 	})
 }

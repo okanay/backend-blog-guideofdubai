@@ -161,3 +161,8 @@ type TagInput struct {
 	Name  string `json:"name" binding:"required"`
 	Value string `json:"value" binding:"required"`
 }
+
+type BlogSelectByGroupIDInput struct {
+	GroupID  string `json:"groupId" binding:"required"`
+	Language string `json:"language" binding:"required"`
+}
