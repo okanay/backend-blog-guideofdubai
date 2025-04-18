@@ -83,24 +83,29 @@ CREATE TABLE IF NOT EXISTS blog_tags (
     PRIMARY KEY (blog_id, tag_name)
 );
 
-CREATE INDEX idx_blog_posts_group_id ON blog_posts (group_id);
+-- Yeni birleşik indeksler (slug ve group_id sorguları için)
+CREATE INDEX IF NOT EXISTS idx_blog_posts_slug_language ON blog_posts (slug, language);
 
-CREATE INDEX idx_blog_posts_user_id ON blog_posts (user_id);
+CREATE INDEX IF NOT EXISTS idx_blog_posts_group_id_language ON blog_posts (group_id, language);
 
-CREATE INDEX idx_blog_posts_status ON blog_posts (status);
+-- Temel filtreleme indeksleri
+CREATE INDEX IF NOT EXISTS idx_blog_posts_user_id ON blog_posts (user_id);
 
-CREATE INDEX idx_blog_posts_language ON blog_posts (language);
+CREATE INDEX IF NOT EXISTS idx_blog_posts_status ON blog_posts (status);
 
-CREATE INDEX idx_blog_metadata_blog_id ON blog_metadata (id);
+-- İlişkisel indeksler (Foreign Key)
+CREATE INDEX IF NOT EXISTS idx_blog_metadata_id ON blog_metadata (id);
 
-CREATE INDEX idx_blog_content_blog_id ON blog_content (id);
+CREATE INDEX IF NOT EXISTS idx_blog_content_id ON blog_content (id);
 
-CREATE INDEX idx_blog_stats_blog_id ON blog_stats (id);
+CREATE INDEX IF NOT EXISTS idx_blog_stats_id ON blog_stats (id);
 
-CREATE INDEX idx_blog_stats_views ON blog_stats (views);
+-- İstatistik sorguları için indeksler
+CREATE INDEX IF NOT EXISTS idx_blog_stats_views ON blog_stats (views);
 
-CREATE INDEX idx_blog_stats_likes ON blog_stats (likes);
+CREATE INDEX IF NOT EXISTS idx_blog_stats_likes ON blog_stats (likes);
 
-CREATE INDEX idx_categories_name ON categories (name);
+-- Kategori ve etiketler için indeksler
+CREATE INDEX IF NOT EXISTS idx_categories_name ON categories (name);
 
-CREATE INDEX idx_tags_name ON tags (name);
+CREATE INDEX IF NOT EXISTS idx_tags_name ON tags (name);

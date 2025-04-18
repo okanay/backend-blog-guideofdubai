@@ -4,27 +4,27 @@ DROP TABLE IF EXISTS blog_categories;
 DROP TABLE IF EXISTS blog_tags;
 
 -- İndeksleri kaldır
-DROP INDEX IF EXISTS idx_blog_posts_group_id;
+DROP INDEX IF EXISTS idx_blog_posts_slug_language;
+
+DROP INDEX IF EXISTS idx_blog_posts_group_id_language;
 
 DROP INDEX IF EXISTS idx_blog_posts_user_id;
 
 DROP INDEX IF EXISTS idx_blog_posts_status;
 
-DROP INDEX IF EXISTS idx_blog_posts_language;
+DROP INDEX IF EXISTS idx_blog_metadata_id;
 
-DROP INDEX IF EXISTS idx_blog_metadata_blog_id;
+DROP INDEX IF EXISTS idx_blog_content_id;
 
-DROP INDEX IF EXISTS idx_blog_content_blog_id;
-
-DROP INDEX IF EXISTS idx_blog_stats_blog_id;
+DROP INDEX IF EXISTS idx_blog_stats_id;
 
 DROP INDEX IF EXISTS idx_blog_stats_views;
 
 DROP INDEX IF EXISTS idx_blog_stats_likes;
 
-DROP INDEX IF EXISTS idx_categories_value;
+DROP INDEX IF EXISTS idx_categories_name;
 
-DROP INDEX IF EXISTS idx_tags_value;
+DROP INDEX IF EXISTS idx_tags_name;
 
 -- Alt tabloları kaldır
 DROP TABLE IF EXISTS blog_metadata;
