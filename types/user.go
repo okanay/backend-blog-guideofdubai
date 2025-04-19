@@ -30,7 +30,7 @@ type User struct {
 	Email          string     `db:"email" json:"email"`
 	Username       string     `db:"username" json:"username"`
 	HashedPassword string     `db:"hashed_password" json:"-"`
-	Membership     Role       `db:"membership" json:"membership"`
+	Role           Role       `db:"role" json:"role"`
 	EmailVerified  bool       `db:"email_verified" json:"emailVerified"`
 	Status         UserStatus `db:"status" json:"status"`
 	DeletedAt      *time.Time `db:"deleted_at" json:"deletedAt,omitempty"`
@@ -39,12 +39,12 @@ type User struct {
 	UpdatedAt      time.Time  `db:"updated_at" json:"updatedAt"`
 }
 
-// UserProfileResponse - secure model to return user profile
-type UserProfileResponse struct {
+// UserView - secure model to return user profile
+type UserView struct {
 	ID            uuid.UUID  `json:"id"`
 	Username      string     `json:"username"`
 	Email         string     `json:"email"`
-	Membership    Role       `json:"membership"`
+	Role          Role       `json:"role"`
 	EmailVerified bool       `json:"emailVerified"`
 	Status        UserStatus `json:"status"`
 	CreatedAt     time.Time  `json:"createdAt"`

@@ -65,7 +65,7 @@ func (h *Handler) Login(c *gin.Context) {
 		ID:       user.ID,
 		Username: user.Username,
 		Email:    user.Email,
-		Role:     user.Membership,
+		Role:     user.Role,
 	}
 
 	// Generate access token
@@ -140,11 +140,11 @@ func (h *Handler) Login(c *gin.Context) {
 	)
 
 	// Return user information securely
-	userProfile := types.UserProfileResponse{
+	userProfile := types.UserView{
 		ID:            user.ID,
 		Username:      user.Username,
 		Email:         user.Email,
-		Membership:    user.Membership,
+		Role:          user.Role,
 		EmailVerified: user.EmailVerified,
 		Status:        user.Status,
 		CreatedAt:     user.CreatedAt,

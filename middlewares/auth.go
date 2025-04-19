@@ -37,7 +37,8 @@ func AuthMiddleware(ur *UserRepository.Repository, tr *TokenRepository.Repositor
 			return
 		}
 
-		setContextValues(c, claims.ID, claims.Username, claims.Email, claims.Role)
+		setContextValues(c, claims.ID, claims.Username, claims.Email, claims.Role, claims.EmailVerified, claims.Status, claims.CreatedAt, claims.LastLogin)
+
 		// 4. Continue processing
 		c.Next()
 	}
@@ -89,7 +90,7 @@ func handleTokenRenewal(c *gin.Context, ur *UserRepository.Repository, tr *Token
 		ID:       user.ID,
 		Username: user.Username,
 		Email:    user.Email,
-		Role:     user.Membership,
+		Role:     user.Role,
 	}
 
 	// 7. Generate a new access token
@@ -123,7 +124,7 @@ func handleTokenRenewal(c *gin.Context, ur *UserRepository.Repository, tr *Token
 	)
 
 	// 10. Add user information to the context
-	setContextValues(c, user.ID, user.Username, user.Email, user.Membership)
+	setContextValues(c, user.ID, user.Username, user.Email, user.Role, user.EmailVerified, user.Status, user.CreatedAt, user.LastLogin)
 	// 11. Continue processing
 	c.Next()
 }
@@ -143,9 +144,13 @@ func handleUnauthorized(c *gin.Context, message string) {
 	c.Abort()
 }
 
-func setContextValues(c *gin.Context, userID uuid.UUID, username string, email string, role types.Role) {
+func setContextValues(c *gin.Context, userID uuid.UUID, username string, email string, role types.Role, emailVerified bool, status types.UserStatus, createdAt time.Time, lastLogin time.Time) {
 	c.Set("user_id", userID)
 	c.Set("username", username)
 	c.Set("email", email)
 	c.Set("role", role)
+	c.Set("email_verified", emailVerified)
+	c.Set("status", status)
+	c.Set("created_at", createdAt)
+	c.Set("last_login", lastLogin)
 }

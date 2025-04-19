@@ -34,8 +34,12 @@ type TokenCreateRequest struct {
 
 // Information to be carried in JWT
 type TokenClaims struct {
-	ID       uuid.UUID `json:"uniqueId"`
-	Username string    `json:"username"`
-	Email    string    `json:"email"`
-	Role     Role      `json:"role"`
+	ID            uuid.UUID  `json:"id"`
+	Username      string     `json:"username"`
+	Email         string     `json:"email"`
+	Role          Role       `json:"role"`
+	EmailVerified bool       `json:"emailVerified"`
+	Status        UserStatus `json:"status"`
+	CreatedAt     time.Time  `json:"createdAt"`
+	LastLogin     time.Time  `json:"lastLogin"`
 }

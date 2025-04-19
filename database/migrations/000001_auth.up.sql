@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT UNIQUE NOT NULL,
     username TEXT NOT NULL UNIQUE,
     hashed_password TEXT NOT NULL,
-    membership role DEFAULT 'User' NOT NULL,
+    role role DEFAULT 'User' NOT NULL,
     email_verified BOOLEAN DEFAULT FALSE,
     status user_status DEFAULT 'Active' NOT NULL,
     deleted_at TIMESTAMPTZ,

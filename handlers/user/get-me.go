@@ -19,14 +19,16 @@ func (h *Handler) GetMe(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, types.UserProfileResponse{
-		ID:            user.ID,
-		Username:      user.Username,
-		Email:         user.Email,
-		Membership:    user.Membership,
-		EmailVerified: user.EmailVerified,
-		Status:        user.Status,
-		CreatedAt:     user.CreatedAt,
-		LastLogin:     user.LastLogin,
+	c.JSON(http.StatusOK, gin.H{
+		"user": types.UserView{
+			ID:            user.ID,
+			Username:      user.Username,
+			Email:         user.Email,
+			Role:          user.Role,
+			EmailVerified: user.EmailVerified,
+			Status:        user.Status,
+			CreatedAt:     user.CreatedAt,
+			LastLogin:     user.LastLogin,
+		},
 	})
 }
