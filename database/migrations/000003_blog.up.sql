@@ -21,9 +21,7 @@ CREATE TABLE IF NOT EXISTS blog_metadata (
     id UUID NOT NULL REFERENCES blog_posts (id) ON DELETE CASCADE PRIMARY KEY,
     title TEXT NOT NULL,
     description TEXT,
-    image TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW () NOT NULL,
-    updated_at TIMESTAMPTZ DEFAULT NOW () NOT NULL
+    image TEXT
 );
 
 -- CONTENT TABLE
@@ -31,10 +29,9 @@ CREATE TABLE IF NOT EXISTS blog_content (
     id UUID NOT NULL REFERENCES blog_posts (id) ON DELETE CASCADE PRIMARY KEY,
     title TEXT NOT NULL,
     description TEXT,
+    image TEXT,
     read_time INTEGER DEFAULT 0,
-    html TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW () NOT NULL,
-    updated_at TIMESTAMPTZ DEFAULT NOW () NOT NULL
+    html TEXT NOT NULL
 );
 
 -- STATISTICS TABLE
@@ -44,9 +41,7 @@ CREATE TABLE IF NOT EXISTS blog_stats (
     likes INTEGER DEFAULT 0,
     shares INTEGER DEFAULT 0,
     comments INTEGER DEFAULT 0,
-    last_viewed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT NOW () NOT NULL,
-    updated_at TIMESTAMPTZ DEFAULT NOW () NOT NULL
+    last_viewed_at TIMESTAMPTZ
 );
 
 -- CATEGORIES TABLE

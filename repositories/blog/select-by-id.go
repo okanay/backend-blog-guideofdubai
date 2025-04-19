@@ -47,8 +47,8 @@ func (r *Repository) SelectBlogByID(blogID uuid.UUID) (*types.BlogPostView, erro
 	close(categoriesCh)
 	close(tagsCh)
 
-	blogView.Content.Categories = <-categoriesCh
-	blogView.Content.Tags = <-tagsCh
+	blogView.Categories = <-categoriesCh
+	blogView.Tags = <-tagsCh
 
 	return blogView, nil
 }
@@ -77,6 +77,7 @@ func (r *Repository) SelectBlogBody(blogID uuid.UUID) (*types.BlogPostView, erro
             -- Content
             bc.title as content_title,
             bc.description as content_description,
+            bc.image as content_image,
             bc.read_time,
             bc.html,
 
@@ -116,6 +117,7 @@ func (r *Repository) SelectBlogBody(blogID uuid.UUID) (*types.BlogPostView, erro
 
 		&content.Title,
 		&contentDesc,
+		&content.Image,
 		&content.ReadTime,
 		&content.HTML,
 

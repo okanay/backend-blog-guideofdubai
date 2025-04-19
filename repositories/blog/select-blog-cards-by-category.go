@@ -54,6 +54,7 @@ func buildBlogCardsQuery(options types.BlogCardQueryOptions) (string, []any) {
             bp.status,
             bc.title,
             bc.description,
+            bc.image,
             bc.read_time,
             bp.created_at,
             bp.updated_at

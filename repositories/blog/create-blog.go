@@ -115,21 +115,18 @@ func (r *Repository) CreateBlogMetadata(tx *sql.Tx, blogID uuid.UUID, metadata t
 
 	query := `
 		INSERT INTO blog_metadata (
-			id, title, description, image, created_at, updated_at
+			id, title, description, image
 		) VALUES (
-			$1, $2, $3, $4, $5, $6
+			$1, $2, $3, $4
 		)
 	`
 
-	now := time.Now()
 	_, err := tx.Exec(
 		query,
 		blogID,
 		metadata.Title,
 		metadata.Description,
 		metadata.Image,
-		now,
-		now,
 	)
 
 	if err != nil {
@@ -144,22 +141,20 @@ func (r *Repository) CreateBlogContent(tx *sql.Tx, blogID uuid.UUID, content typ
 
 	query := `
 		INSERT INTO blog_content (
-			id, title, description, read_time, html, created_at, updated_at
+			id, title, description, image, read_time, html
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7
+			$1, $2, $3, $4, $5, $6
 		)
 	`
 
-	now := time.Now()
 	_, err := tx.Exec(
 		query,
 		blogID,
 		content.Title,
 		content.Description,
+		content.Image,
 		content.ReadTime,
 		content.HTML,
-		now,
-		now,
 	)
 
 	if err != nil {
@@ -213,13 +208,12 @@ func (r *Repository) InitializeBlogStatsForSkeleton(tx *sql.Tx, blogID uuid.UUID
 
 	query := `
 		INSERT INTO blog_stats (
-			id, views, likes, shares, comments, created_at, updated_at
+			id, views, likes, shares, comments
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7
+			$1, $2, $3, $4, $5
 		)
 	`
 
-	now := time.Now()
 	_, err := tx.Exec(
 		query,
 		blogID,
@@ -227,8 +221,6 @@ func (r *Repository) InitializeBlogStatsForSkeleton(tx *sql.Tx, blogID uuid.UUID
 		0, // likes
 		0, // shares
 		0, // comments
-		now,
-		now,
 	)
 
 	if err != nil {

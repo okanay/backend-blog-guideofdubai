@@ -38,8 +38,6 @@ type BlogMetadata struct {
 	Title       string    `json:"title" db:"title"`
 	Description string    `json:"description" db:"description"`
 	Image       string    `json:"image" db:"image"`
-	CreatedAt   time.Time `json:"createdAt" db:"created_at"`
-	UpdatedAt   time.Time `json:"updatedAt" db:"updated_at"`
 }
 
 // BlogContent - blog content
@@ -47,10 +45,9 @@ type BlogContent struct {
 	ID          uuid.UUID `json:"id" db:"id"`
 	Title       string    `json:"title" db:"title"`
 	Description string    `json:"description" db:"description"`
+	Image       string    `json:"image" db:"image"`
 	ReadTime    int       `json:"readTime" db:"read_time"`
 	HTML        string    `json:"html" db:"html"`
-	CreatedAt   time.Time `json:"createdAt" db:"created_at"`
-	UpdatedAt   time.Time `json:"updatedAt" db:"updated_at"`
 }
 
 // BlogStats - blog statistics
@@ -61,26 +58,26 @@ type BlogStats struct {
 	Shares       int        `json:"shares" db:"shares"`
 	Comments     int        `json:"comments" db:"comments"`
 	LastViewedAt *time.Time `json:"lastViewedAt,omitempty" db:"last_viewed_at"`
-	CreatedAt    time.Time  `json:"createdAt" db:"created_at"`
-	UpdatedAt    time.Time  `json:"updatedAt" db:"updated_at"`
 }
 
 // ----- VIEW STRUCTURES -----
 
 // BlogPostView - blog post view structure
 type BlogPostView struct {
-	ID          string       `json:"id"`
-	GroupID     string       `json:"groupId"`
-	Slug        string       `json:"slug"`
-	Language    string       `json:"language"`
-	Featured    bool         `json:"featured"`
-	Status      BlogStatus   `json:"status"`
-	Metadata    MetadataView `json:"metadata"`
-	Content     ContentView  `json:"content"`
-	Stats       StatsView    `json:"stats"`
-	CreatedAt   time.Time    `json:"createdAt"`
-	UpdatedAt   time.Time    `json:"updatedAt"`
-	PublishedAt time.Time    `json:"publishedAt"`
+	ID          string         `json:"id"`
+	GroupID     string         `json:"groupId"`
+	Slug        string         `json:"slug"`
+	Language    string         `json:"language"`
+	Featured    bool           `json:"featured"`
+	Status      BlogStatus     `json:"status"`
+	Metadata    MetadataView   `json:"metadata"`
+	Content     ContentView    `json:"content"`
+	Stats       StatsView      `json:"stats"`
+	Categories  []CategoryView `json:"categories"`
+	Tags        []TagView      `json:"tags"`
+	CreatedAt   time.Time      `json:"createdAt"`
+	UpdatedAt   time.Time      `json:"updatedAt"`
+	PublishedAt time.Time      `json:"publishedAt"`
 }
 
 // BlogPostListView - blog post list view structure
@@ -105,17 +102,17 @@ type MetadataView struct {
 
 // ContentView - content view structure
 type ContentView struct {
-	Title       string         `json:"title"`
-	Description string         `json:"description"`
-	ReadTime    int            `json:"readTime"`
-	Categories  []CategoryView `json:"categories"`
-	Tags        []TagView      `json:"tags"`
-	HTML        string         `json:"html"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Image       string `json:"image"`
+	ReadTime    int    `json:"readTime"`
+	HTML        string `json:"html"`
 }
 
 type ContentCardView struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
+	Image       string `json:"image"`
 	ReadTime    int    `json:"readTime"`
 }
 
@@ -155,45 +152,19 @@ type BlogPostCreateInput struct {
 	Tags       []string      `json:"tags"`
 }
 
-type SortDirection string
-
-const (
-	SortAsc  SortDirection = "asc"
-	SortDesc SortDirection = "desc"
-)
-
-type BlogCardQueryOptions struct {
-	ID            uuid.UUID   // Tek bir blog kartı için ID
-	IDs           []uuid.UUID // Çoklu blog kartları için ID listesi
-	CategoryValue string      // Kategori değeri
-	TagValue      string      // Etiket değeri
-	Language      string      // Dil filtresi
-	Featured      bool        // Öne çıkanlar için filtre
-	Status        BlogStatus  // Blog durumu filtresi
-	Limit         int         // Sonuç sayısı sınırlaması
-	Offset        int         // Sayfalama için offset
-
-	// Yeni tarih filtreleme alanları
-	StartDate *time.Time // Bu tarihten sonraki gönderiler
-	EndDate   *time.Time // Bu tarihten önceki gönderiler
-
-	// Sıralama seçenekleri
-	SortBy        string        // Sıralama alanı (created_at, updated_at, vb.)
-	SortDirection SortDirection // Sıralama yönü (asc, desc)
-}
-
 // MetadataInput - metadata input structure
 type MetadataInput struct {
 	Title       string `json:"title" binding:"required"`
-	Description string `json:"description"`
-	Image       string `json:"image"`
+	Description string `json:"description" binding:"required"`
+	Image       string `json:"image" binding:"required"`
 }
 
 // ContentInput - content input structure
 type ContentInput struct {
 	Title       string `json:"title" binding:"required"`
-	Description string `json:"description"`
-	ReadTime    int    `json:"readTime"`
+	Description string `json:"description" binding:"required"`
+	Image       string `json:"image" binding:"required"`
+	ReadTime    int    `json:"readTime" binding:"required"`
 	HTML        string `json:"html" binding:"required"`
 }
 
@@ -212,6 +183,30 @@ type TagInput struct {
 type BlogSelectByGroupIDInput struct {
 	GroupID  string `json:"groupId" binding:"required"`
 	Language string `json:"language" binding:"required"`
+}
+
+// ----- SELECT STRUCTURES -----
+type SortDirection string
+
+const (
+	SortAsc  SortDirection = "asc"
+	SortDesc SortDirection = "desc"
+)
+
+type BlogCardQueryOptions struct {
+	ID            uuid.UUID     `json:"id"`
+	IDs           []uuid.UUID   `json:"ids"`
+	CategoryValue string        `json:"categoryValue"`
+	TagValue      string        `json:"tagValue"`
+	Language      string        `json:"language"`
+	Featured      bool          `json:"featured"`
+	Status        BlogStatus    `json:"status"`
+	Limit         int           `json:"limit"`
+	Offset        int           `json:"offset"`
+	StartDate     *time.Time    `json:"startDate"`
+	EndDate       *time.Time    `json:"endDate"`
+	SortBy        string        `json:"sortBy"`
+	SortDirection SortDirection `json:"sortDirection"`
 }
 
 func (o BlogCardQueryOptions) HasFilter() bool {
