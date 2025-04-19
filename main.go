@@ -59,6 +59,8 @@ func main() {
 	// User Routes
 	router.POST("/login", uh.Login)
 	router.POST("/register", uh.Register)
+	auth.GET("/logout", uh.Logout)
+	auth.GET("/get-me", uh.GetMe)
 
 	// Blog Routes
 	router.POST("/blog", bh.SelectBlogByGroupID)

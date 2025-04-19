@@ -6,7 +6,7 @@ import (
 )
 
 func CorsConfig() gin.HandlerFunc {
-	var origins = []string{}
+	var origins = []string{"http://localhost:3000"}
 
 	if gin.Mode() == gin.DebugMode {
 		origins = append(origins, "http://localhost:3000")
@@ -14,7 +14,7 @@ func CorsConfig() gin.HandlerFunc {
 
 	return cors.New(cors.Config{
 		AllowMethods:     []string{"GET", "POST", "DELETE", "PATCH"},
-		AllowHeaders:     []string{"*"},
+		AllowHeaders:     []string{"Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowOrigins:     origins,
 		AllowCredentials: true,
