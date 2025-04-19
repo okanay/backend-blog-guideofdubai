@@ -171,6 +171,7 @@ func (r *Repository) CreateBlogContent(tx *sql.Tx, blogID uuid.UUID, content typ
 
 func (r *Repository) CreateBlogCategories(tx *sql.Tx, blogID uuid.UUID, categories []string) error {
 	defer utils.TimeTrack(time.Now(), "Blog -> Create Blog Categories")
+	fmt.Println(categories)
 
 	for _, categoryValue := range categories {
 		query := `

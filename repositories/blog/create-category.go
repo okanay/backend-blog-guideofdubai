@@ -10,7 +10,6 @@ import (
 
 func (r *Repository) CreateBlogCategory(request types.CategoryInput, userID uuid.UUID) (types.CategoryView, error) {
 	defer utils.TimeTrack(time.Now(), "Blog -> Create Blog Category")
-
 	query := `
 		INSERT INTO categories (
 			name, value, user_id
