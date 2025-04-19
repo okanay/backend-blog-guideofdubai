@@ -62,6 +62,7 @@ func main() {
 
 	// Blog Routes
 	router.POST("/blog", bh.SelectBlogByGroupID)
+	router.GET("/blog/cards", bh.SelectBlogCards)
 
 	auth.GET("/blog/tags", bh.SelectAllTags)
 	auth.GET("/blog/categories", bh.SelectAllCategories)

@@ -83,6 +83,19 @@ type BlogPostView struct {
 	PublishedAt time.Time    `json:"publishedAt"`
 }
 
+// BlogPostListView - blog post list view structure
+type BlogPostCardView struct {
+	ID        string          `json:"id"`
+	GroupID   string          `json:"groupId"`
+	Slug      string          `json:"slug"`
+	Language  string          `json:"language"`
+	Featured  bool            `json:"featured"`
+	Status    BlogStatus      `json:"status"`
+	Content   ContentCardView `json:"content"`
+	CreatedAt time.Time       `json:"createdAt"`
+	UpdatedAt time.Time       `json:"updatedAt"`
+}
+
 // MetadataView - metadata view structure
 type MetadataView struct {
 	Title       string `json:"title"`
@@ -98,6 +111,12 @@ type ContentView struct {
 	Categories  []CategoryView `json:"categories"`
 	Tags        []TagView      `json:"tags"`
 	HTML        string         `json:"html"`
+}
+
+type ContentCardView struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	ReadTime    int    `json:"readTime"`
 }
 
 // StatsView - statistics view structure
@@ -133,6 +152,36 @@ type BlogPostCreateInput struct {
 	Content    ContentInput  `json:"content" binding:"required"`
 	Categories []string      `json:"categories"`
 	Tags       []string      `json:"tags"`
+}
+
+type SortDirection string
+
+const (
+	SortAsc  SortDirection = "asc"
+	SortDesc SortDirection = "desc"
+)
+
+type BlogCardQueryOptions struct {
+	ID            uuid.UUID   // Tek bir blog kartı için ID
+	IDs           []uuid.UUID // Çoklu blog kartları için ID listesi
+	CategoryValue string      // Kategori değeri
+	TagValue      string      // Etiket değeri
+	Language      string      // Dil filtresi
+	Featured      bool        // Öne çıkanlar için filtre
+	Status        BlogStatus  // Blog durumu filtresi
+	Limit         int         // Sonuç sayısı sınırlaması
+	Offset        int         // Sayfalama için offset
+
+	// Yeni tarih filtreleme alanları
+	StartDate  *time.Time // Bu tarihten sonraki gönderiler
+	EndDate    *time.Time // Bu tarihten önceki gönderiler
+	LastDays   int        // Son X gün içindeki gönderiler
+	LastWeeks  int        // Son X hafta içindeki gönderiler
+	LastMonths int        // Son X ay içindeki gönderiler
+
+	// Sıralama seçenekleri
+	SortBy        string        // Sıralama alanı (created_at, updated_at, vb.)
+	SortDirection SortDirection // Sıralama yönü (asc, desc)
 }
 
 // MetadataInput - metadata input structure
