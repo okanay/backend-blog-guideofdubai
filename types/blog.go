@@ -148,6 +148,7 @@ type BlogPostCreateInput struct {
 	Slug       string        `json:"slug" binding:"required"`
 	Language   string        `json:"language" binding:"required"`
 	Featured   bool          `json:"featured"`
+	Status     BlogStatus    `json:"status" binding:"required"`
 	Metadata   MetadataInput `json:"metadata" binding:"required"`
 	Content    ContentInput  `json:"content" binding:"required"`
 	Categories []string      `json:"categories"`
@@ -173,11 +174,8 @@ type BlogCardQueryOptions struct {
 	Offset        int         // Sayfalama için offset
 
 	// Yeni tarih filtreleme alanları
-	StartDate  *time.Time // Bu tarihten sonraki gönderiler
-	EndDate    *time.Time // Bu tarihten önceki gönderiler
-	LastDays   int        // Son X gün içindeki gönderiler
-	LastWeeks  int        // Son X hafta içindeki gönderiler
-	LastMonths int        // Son X ay içindeki gönderiler
+	StartDate *time.Time // Bu tarihten sonraki gönderiler
+	EndDate   *time.Time // Bu tarihten önceki gönderiler
 
 	// Sıralama seçenekleri
 	SortBy        string        // Sıralama alanı (created_at, updated_at, vb.)
@@ -214,4 +212,16 @@ type TagInput struct {
 type BlogSelectByGroupIDInput struct {
 	GroupID  string `json:"groupId" binding:"required"`
 	Language string `json:"language" binding:"required"`
+}
+
+func (o BlogCardQueryOptions) HasFilter() bool {
+	return o.ID != uuid.Nil ||
+		len(o.IDs) > 0 ||
+		o.CategoryValue != "" ||
+		o.TagValue != "" ||
+		o.Language != "" ||
+		o.Featured ||
+		o.Status != "" ||
+		o.StartDate != nil ||
+		o.EndDate != nil
 }

@@ -14,7 +14,33 @@ import (
 func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]types.BlogPostCardView, error) {
 	defer utils.TimeTrack(time.Now(), "Blog -> Select Blog Cards")
 
-	var params []interface{}
+	// SQL sorgusu oluşturma
+	query, params := buildBlogCardsQuery(options)
+
+	// Sorguyu çalıştır
+	rows, err := r.db.Query(query, params...)
+	if err != nil {
+		return nil, fmt.Errorf("blog kartları sorgusu çalıştırılırken hata: %w", err)
+	}
+	defer rows.Close()
+
+	// Sonuçları dönüştür
+	blogCards, err := scanBlogCards(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	// Eğer tek bir ID istendiyse ve bulunamadıysa hata döndür
+	if options.ID != uuid.Nil && len(blogCards) == 0 {
+		return nil, fmt.Errorf("ID'si %s olan blog kartı bulunamadı", options.ID)
+	}
+
+	return blogCards, nil
+}
+
+// SQL sorgusunu ve parametrelerini oluşturan yardımcı fonksiyon
+func buildBlogCardsQuery(options types.BlogCardQueryOptions) (string, []any) {
+	var params []any
 	paramCount := 1
 
 	// Base sorgu
@@ -35,9 +61,12 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
         JOIN blog_content bc ON bp.id = bc.id
     `
 
+	// JOIN ifadeleri
+	joins := ""
+
 	// Kategori için JOIN
 	if options.CategoryValue != "" {
-		baseQuery += `
+		joins += `
         JOIN blog_categories bcat ON bp.id = bcat.blog_id
         JOIN categories c ON bcat.category_name = c.name
         `
@@ -45,106 +74,112 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 
 	// Etiket için JOIN
 	if options.TagValue != "" {
-		baseQuery += `
-            JOIN blog_tags bt ON bp.id = bt.blog_id
-            JOIN tags t ON bt.tag_name = t.name
+		joins += `
+        JOIN blog_tags bt ON bp.id = bt.blog_id
+        JOIN tags t ON bt.tag_name = t.name
         `
 	}
 
 	// WHERE koşullarını oluştur
 	var conditions []string
 
-	// ID filtreleri için
-	if options.ID != uuid.Nil {
-		conditions = append(conditions, fmt.Sprintf("bp.id = $%d", paramCount))
-		params = append(params, options.ID)
-		paramCount++
-	} else if len(options.IDs) > 0 {
-		placeholders := make([]string, len(options.IDs))
-		for i, id := range options.IDs {
-			placeholders[i] = fmt.Sprintf("$%d", paramCount)
-			params = append(params, id)
-			paramCount++
-		}
-		conditions = append(conditions, fmt.Sprintf("bp.id IN (%s)", strings.Join(placeholders, ",")))
-	}
+	// Filtre koşullarını ekle
+	conditions = addFilterConditions(options, &params, &paramCount, &conditions)
 
-	// Kategori filtresi
-	if options.CategoryValue != "" {
-		conditions = append(conditions, fmt.Sprintf("c.name = $%d", paramCount))
-		params = append(params, options.CategoryValue)
-		paramCount++
-	}
+	// Tarih filtrelerini ekle
+	conditions = addDateConditions(options, &params, &paramCount, &conditions)
 
-	// Etiket filtresi
-	if options.TagValue != "" {
-		conditions = append(conditions, fmt.Sprintf("t.name = $%d", paramCount))
-		params = append(params, options.TagValue)
-		paramCount++
-	}
-
-	// Dil filtresi
-	if options.Language != "" {
-		conditions = append(conditions, fmt.Sprintf("bp.language = $%d", paramCount))
-		params = append(params, options.Language)
-		paramCount++
-	}
-
-	// Öne çıkanlar filtresi
-	if options.Featured {
-		conditions = append(conditions, "bp.featured = true")
-	}
-
-	// Status filtresi
-	if options.Status != "" {
-		conditions = append(conditions, fmt.Sprintf("bp.status = $%d", paramCount))
-		params = append(params, options.Status)
-		paramCount++
-	} else {
-		// Varsayılan olarak sadece published olanları getir
-		conditions = append(conditions, "bp.status = 'published'")
-	}
-
-	if options.StartDate != nil {
-		conditions = append(conditions, fmt.Sprintf("bp.created_at >= $%d", paramCount))
-		params = append(params, options.StartDate)
-		paramCount++
-	}
-
-	// Bitiş tarihi
-	if options.EndDate != nil {
-		conditions = append(conditions, fmt.Sprintf("bp.created_at <= $%d", paramCount))
-		params = append(params, options.EndDate)
-		paramCount++
-	}
-
-	// Son X gün
-	if options.LastDays > 0 {
-		conditions = append(conditions, fmt.Sprintf("bp.created_at >= NOW() - INTERVAL '$%d days'", paramCount))
-		params = append(params, options.LastDays)
-		paramCount++
-	}
-
-	// Son X hafta
-	if options.LastWeeks > 0 {
-		conditions = append(conditions, fmt.Sprintf("bp.created_at >= NOW() - INTERVAL '$%d weeks'", paramCount))
-		params = append(params, options.LastWeeks)
-		paramCount++
-	}
-
-	// Son X ay
-	if options.LastMonths > 0 {
-		conditions = append(conditions, fmt.Sprintf("bp.created_at >= NOW() - INTERVAL '$%d months'", paramCount))
-		params = append(params, options.LastMonths)
-		paramCount++
-	}
-
-	// Koşulları WHERE kısmına ekle
-	query := baseQuery
+	// Tam sorguyu oluştur
+	query := baseQuery + joins
 	if len(conditions) > 0 {
 		query += " WHERE " + strings.Join(conditions, " AND ")
 	}
 
+	// Sıralama
+	query += buildOrderByClause(options)
+
+	// Limit ve Offset
+	query = addPaginationClauses(options, query, &params, &paramCount)
+
+	return query, params
+}
+
+// Filtre koşullarını ekleyen yardımcı fonksiyon
+func addFilterConditions(options types.BlogCardQueryOptions, params *[]any, paramCount *int, conditions *[]string) []string {
+	// ID filtreleri için
+	if options.ID != uuid.Nil {
+		*conditions = append(*conditions, fmt.Sprintf("bp.id = $%d", *paramCount))
+		*params = append(*params, options.ID)
+		*paramCount++
+	} else if len(options.IDs) > 0 {
+		placeholders := make([]string, len(options.IDs))
+		for i, id := range options.IDs {
+			placeholders[i] = fmt.Sprintf("$%d", *paramCount)
+			*params = append(*params, id)
+			*paramCount++
+		}
+		*conditions = append(*conditions, fmt.Sprintf("bp.id IN (%s)", strings.Join(placeholders, ",")))
+	}
+
+	// Kategori filtresi
+	if options.CategoryValue != "" {
+		*conditions = append(*conditions, fmt.Sprintf("c.name = $%d", *paramCount))
+		*params = append(*params, options.CategoryValue)
+		*paramCount++
+	}
+
+	// Etiket filtresi
+	if options.TagValue != "" {
+		*conditions = append(*conditions, fmt.Sprintf("t.name = $%d", *paramCount))
+		*params = append(*params, options.TagValue)
+		*paramCount++
+	}
+
+	// Dil filtresi
+	if options.Language != "" {
+		*conditions = append(*conditions, fmt.Sprintf("bp.language = $%d", *paramCount))
+		*params = append(*params, options.Language)
+		*paramCount++
+	}
+
+	// Öne çıkanlar filtresi
+	if options.Featured {
+		*conditions = append(*conditions, "bp.featured = true")
+	}
+
+	// Status filtresi
+	if options.Status != "" {
+		*conditions = append(*conditions, fmt.Sprintf("bp.status = $%d", *paramCount))
+		*params = append(*params, options.Status)
+		*paramCount++
+	} else {
+		// Varsayılan olarak sadece published olanları getir
+		*conditions = append(*conditions, "bp.status = 'published'")
+	}
+
+	return *conditions
+}
+
+// Tarih filtrelerini ekleyen yardımcı fonksiyon
+func addDateConditions(options types.BlogCardQueryOptions, params *[]any, paramCount *int, conditions *[]string) []string {
+	if options.StartDate != nil {
+		*conditions = append(*conditions, fmt.Sprintf("bp.created_at >= $%d", *paramCount))
+		*params = append(*params, options.StartDate)
+		*paramCount++
+	}
+
+	// Bitiş tarihi
+	if options.EndDate != nil {
+		*conditions = append(*conditions, fmt.Sprintf("bp.created_at <= $%d", *paramCount))
+		*params = append(*params, options.EndDate)
+		*paramCount++
+	}
+
+	return *conditions
+}
+
+// Sıralama ifadesini oluşturan yardımcı fonksiyon
+func buildOrderByClause(options types.BlogCardQueryOptions) string {
 	sortField := "bp.created_at"
 	if options.SortBy != "" {
 		// Güvenli sıralama alanları
@@ -166,29 +201,32 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 		sortDirection = "ASC"
 	}
 
-	query += fmt.Sprintf(" ORDER BY %s %s", sortField, sortDirection)
+	return fmt.Sprintf(" ORDER BY %s %s", sortField, sortDirection)
+}
 
+// Limit ve Offset ifadelerini ekleyen yardımcı fonksiyon
+func addPaginationClauses(options types.BlogCardQueryOptions, query string, params *[]any, paramCount *int) string {
 	// Limit
 	if options.Limit > 0 {
-		query += fmt.Sprintf(" LIMIT $%d", paramCount)
-		params = append(params, options.Limit)
-		paramCount++
+		query += fmt.Sprintf(" LIMIT $%d", *paramCount)
+		*params = append(*params, options.Limit)
+		*paramCount++
 	}
 
 	// Offset
 	if options.Offset > 0 {
-		query += fmt.Sprintf(" OFFSET $%d", paramCount)
-		params = append(params, options.Offset)
+		query += fmt.Sprintf(" OFFSET $%d", *paramCount)
+		*params = append(*params, options.Offset)
+		*paramCount++
 	}
 
-	// Sorguyu çalıştır
-	rows, err := r.db.Query(query, params...)
-	if err != nil {
-		return nil, fmt.Errorf("error executing blog cards query: %w", err)
-	}
-	defer rows.Close()
+	return query
+}
 
+// Sorgu sonuçlarını blog kart yapılarına dönüştüren yardımcı fonksiyon
+func scanBlogCards(rows *sql.Rows) ([]types.BlogPostCardView, error) {
 	var blogCards []types.BlogPostCardView
+
 	for rows.Next() {
 		var card types.BlogPostCardView
 		var content types.ContentCardView
@@ -209,7 +247,7 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 		)
 
 		if err != nil {
-			return nil, fmt.Errorf("error scanning blog card data: %w", err)
+			return nil, fmt.Errorf("blog kartı verileri okunurken hata: %w", err)
 		}
 
 		if description.Valid {
@@ -220,13 +258,8 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 		blogCards = append(blogCards, card)
 	}
 
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error processing blog cards: %w", err)
-	}
-
-	// Eğer tek bir ID istendiyse ve bulunamadıysa hata döndür
-	if options.ID != uuid.Nil && len(blogCards) == 0 {
-		return nil, fmt.Errorf("blog card with ID %s not found", options.ID)
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("blog kartları işlenirken hata: %w", err)
 	}
 
 	return blogCards, nil
