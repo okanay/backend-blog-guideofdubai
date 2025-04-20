@@ -21,10 +21,10 @@ func (h *Handler) CreateBlogTag(c *gin.Context) {
 	tag, err := h.BlogRepository.CreateBlogTag(request, userID)
 
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		// Aynı hata işleme fonksiyonu tekrar kullanılır
+		if utils.HandleDatabaseError(c, err, "Blog etiketi oluşturma") {
+			return
+		}
 		return
 	}
 

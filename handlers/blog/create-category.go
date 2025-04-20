@@ -21,10 +21,9 @@ func (h *Handler) CreateBlogCategory(c *gin.Context) {
 	category, err := h.BlogRepository.CreateBlogCategory(request, userID)
 
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		if utils.HandleDatabaseError(c, err, "Blog kategori oluşturma") {
+			return
+		}
 		return
 	}
 

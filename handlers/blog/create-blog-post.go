@@ -21,9 +21,14 @@ func (h *Handler) CreateBlogPost(c *gin.Context) {
 	blog, err := h.BlogRepository.CreateBlogPost(request, userID)
 
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
+		if utils.HandleDatabaseError(c, err, "Blog yazısı oluşturma") {
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
-			"error":   err.Error(),
+			"error":   "unexpected_error",
+			"message": "Beklenmeyen bir hata oluştu.",
 		})
 		return
 	}

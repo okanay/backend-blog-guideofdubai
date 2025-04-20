@@ -22,21 +22,13 @@ func (h *Handler) Login(c *gin.Context) {
 	// Retrieve user information from the database
 	user, err := h.UserRepository.SelectByUsername(request.Username)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"success": false,
-			"error":   "invalid_credentials",
-			"message": "Invalid username or password.",
-		})
+		utils.Unauthorized(c, "Geçersiz kullanıcı adı veya şifre.")
 		return
 	}
 
 	// Validate password
 	if !utils.CheckPassword(request.Password, user.HashedPassword) {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"success": false,
-			"error":   "invalid_credentials",
-			"message": "Invalid username or password.",
-		})
+		utils.Unauthorized(c, "Geçersiz kullanıcı adı veya şifre.")
 		return
 	}
 
@@ -45,22 +37,18 @@ func (h *Handler) Login(c *gin.Context) {
 		var statusMessage string
 		switch user.Status {
 		case types.UserStatusSuspended:
-			statusMessage = "Your account has been suspended."
+			statusMessage = "Hesabınız askıya alındı."
 		case types.UserStatusDeleted:
-			statusMessage = "Your account has been deleted."
+			statusMessage = "Hesabınız silindi."
 		default:
-			statusMessage = "Your account is not active."
+			statusMessage = "Hesabınız aktif değil."
 		}
 
-		c.JSON(http.StatusForbidden, gin.H{
-			"success": false,
-			"error":   "account_inactive",
-			"message": statusMessage,
-		})
+		utils.Forbidden(c, statusMessage)
 		return
 	}
 
-	// Create token claims
+	// Token işlemleri...
 	tokenClaims := types.TokenClaims{
 		ID:       user.ID,
 		Username: user.Username,
@@ -71,11 +59,7 @@ func (h *Handler) Login(c *gin.Context) {
 	// Generate access token
 	accessToken, err := utils.GenerateAccessToken(tokenClaims)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   "token_generation_failed",
-			"message": "An error occurred while creating the session.",
-		})
+		utils.SendError(c, "token_generation_failed", "Oturum oluşturulurken bir hata oluştu.")
 		return
 	}
 
@@ -98,11 +82,9 @@ func (h *Handler) Login(c *gin.Context) {
 
 	_, err = h.TokenRepository.CreateRefreshToken(tokenRequest)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   "token_save_failed",
-			"message": "An error occurred while creating the session.",
-		})
+		if utils.HandleDatabaseError(c, err, "Token kaydetme") {
+			return
+		}
 		return
 	}
 
@@ -110,24 +92,22 @@ func (h *Handler) Login(c *gin.Context) {
 	now := time.Now()
 	err = h.UserRepository.UpdateLastLogin(user.Email, now)
 	if err != nil {
-		// This error should not prevent session creation, just log it
-		// log.Printf("Error updating last login time: %v", err)
+		// Bu hata kritik değil, session oluşmaya devam edebilir
+		// Log yapılabilir
 	}
 
 	// Set cookies
-	// Access Token Cookie
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie(
 		configs.ACCESS_TOKEN_NAME,
 		accessToken,
 		int(configs.ACCESS_TOKEN_DURATION.Seconds()),
 		"/",
-		"",    // Domain - can be left empty, browser will use the current domain
-		false, // Secure - should be true in production
+		"",    // Domain
+		false, // Secure
 		true,  // HttpOnly
 	)
 
-	// Refresh Token Cookie
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie(
 		configs.REFRESH_TOKEN_NAME,
@@ -153,7 +133,7 @@ func (h *Handler) Login(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": "Login successful.",
+		"message": "Giriş başarılı.",
 		"user":    userProfile,
 	})
 }

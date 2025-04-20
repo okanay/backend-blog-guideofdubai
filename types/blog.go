@@ -186,18 +186,12 @@ type BlogSelectByGroupIDInput struct {
 }
 
 // ----- SELECT STRUCTURES -----
-type SortDirection string
-
-const (
-	SortAsc  SortDirection = "asc"
-	SortDesc SortDirection = "desc"
-)
-
 type BlogCardQueryOptions struct {
 	ID            uuid.UUID     `json:"id"`
 	IDs           []uuid.UUID   `json:"ids"`
 	CategoryValue string        `json:"categoryValue"`
 	TagValue      string        `json:"tagValue"`
+	Title         string        `json:"title"`
 	Language      string        `json:"language"`
 	Featured      bool          `json:"featured"`
 	Status        BlogStatus    `json:"status"`
@@ -208,3 +202,10 @@ type BlogCardQueryOptions struct {
 	SortBy        string        `json:"sortBy"`
 	SortDirection SortDirection `json:"sortDirection"`
 }
+
+type SortDirection string
+
+const (
+	SortAsc  SortDirection = "asc"
+	SortDesc SortDirection = "desc"
+)
