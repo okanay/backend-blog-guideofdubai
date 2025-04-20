@@ -208,15 +208,3 @@ type BlogCardQueryOptions struct {
 	SortBy        string        `json:"sortBy"`
 	SortDirection SortDirection `json:"sortDirection"`
 }
-
-func (o BlogCardQueryOptions) HasFilter() bool {
-	return o.ID != uuid.Nil ||
-		len(o.IDs) > 0 ||
-		o.CategoryValue != "" ||
-		o.TagValue != "" ||
-		o.Language != "" ||
-		o.Featured ||
-		o.Status != "" ||
-		o.StartDate != nil ||
-		o.EndDate != nil
-}
