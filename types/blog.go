@@ -215,6 +215,18 @@ const (
 
 // ----- UPDATE STRUCTURES -----
 
+type BlogUpdateInput struct {
+	ID         string        `json:"id" binding:"required"`
+	GroupID    string        `json:"groupId" binding:"required"`
+	Slug       string        `json:"slug" binding:"required"`
+	Language   string        `json:"language" binding:"required"`
+	Featured   bool          `json:"featured"`
+	Metadata   MetadataInput `json:"metadata" binding:"required"`
+	Content    ContentInput  `json:"content" binding:"required"`
+	Categories []string      `json:"categories"`
+	Tags       []string      `json:"tags"`
+}
+
 type BlogUpdateStatusInput struct {
 	ID     string     `json:"id" binding:"required"`
 	Status BlogStatus `json:"status" binding:"required"`

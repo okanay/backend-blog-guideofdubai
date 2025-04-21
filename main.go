@@ -41,14 +41,13 @@ func main() {
 	uh := UserHandler.NewHandler(ur, tr)
 	bh := BlogHandler.NewHandler(br)
 
-	// Router Initialize
+	// Router ve Middleware Yapılandırması
 	router := gin.Default()
 	router.Use(c.CorsConfig())
 	router.Use(c.SecureConfig)
+	router.MaxMultipartMemory = 10 << 20 // 10 MB
 
-	// Router Configuration
-	router.MaxMultipartMemory = 10 << 20 // MB : 10 MB
-
+	// Kimlik doğrulama gerektiren rotalar için grup
 	auth := router.Group("/auth")
 	auth.Use(mw.AuthMiddleware(ur, tr))
 
@@ -56,25 +55,39 @@ func main() {
 	router.GET("/", mh.Index)
 	router.NoRoute(mh.NotFound)
 
-	// User Routes
+	// Authentication Routes (public)
 	router.POST("/login", uh.Login)
 	router.POST("/register", uh.Register)
 	auth.GET("/logout", uh.Logout)
 	auth.GET("/get-me", uh.GetMe)
 
-	// Blog Routes
-	router.POST("/blog", bh.SelectBlogByGroupID)
-	router.GET("/blog/cards", bh.SelectBlogCards)
+	// Blog Routes - Public Access
+	blogPublic := router.Group("/blog")
+	{
+		blogPublic.GET("", bh.SelectBlogByGroupID)
+		blogPublic.GET("/cards", bh.SelectBlogCards)
+		blogPublic.GET("/:id", bh.SelectBlogByID)
+	}
 
-	auth.GET("/blog/tags", bh.SelectAllTags)
-	auth.GET("/blog/categories", bh.SelectAllCategories)
+	// Blog Routes - Authenticated Access
+	blogAuth := auth.Group("/blog")
+	{
+		// Listeleme işlemleri
+		blogAuth.GET("/tags", bh.SelectAllTags)
+		blogAuth.GET("/categories", bh.SelectAllCategories)
 
-	auth.POST("/blog", bh.CreateBlogPost)
-	auth.POST("/blog/tag", bh.CreateBlogTag)
-	auth.POST("/blog/category", bh.CreateBlogCategory)
+		// Oluşturma işlemleri
+		blogAuth.POST("", bh.CreateBlogPost)
+		blogAuth.POST("/tag", bh.CreateBlogTag)
+		blogAuth.POST("/category", bh.CreateBlogCategory)
 
-	auth.PATCH("/blog/status", bh.UpdateBlogStatus)
-	auth.DELETE("/blog/:id", bh.DeleteBlogByID)
+		// Güncelleme işlemleri
+		blogAuth.PATCH("", bh.UpdateBlogPost)
+		blogAuth.PATCH("/status", bh.UpdateBlogStatus)
+
+		// Silme işlemleri
+		blogAuth.DELETE("/:id", bh.DeleteBlogByID)
+	}
 
 	// Start Server
 	err = router.Run(":" + os.Getenv("PORT"))
