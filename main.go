@@ -73,6 +73,7 @@ func main() {
 	auth.POST("/blog/tag", bh.CreateBlogTag)
 	auth.POST("/blog/category", bh.CreateBlogCategory)
 
+	auth.PATCH("/blog/status", bh.UpdateBlogStatus)
 	auth.DELETE("/blog/:id", bh.DeleteBlogByID)
 
 	// Start Server

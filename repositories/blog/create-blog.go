@@ -141,7 +141,7 @@ func (r *Repository) CreateBlogContent(tx *sql.Tx, blogID uuid.UUID, content typ
 
 	query := `
 		INSERT INTO blog_content (
-			id, title, description, image, read_time, html
+			id, title, description, image, read_time, json
 		) VALUES (
 			$1, $2, $3, $4, $5, $6
 		)
@@ -154,7 +154,7 @@ func (r *Repository) CreateBlogContent(tx *sql.Tx, blogID uuid.UUID, content typ
 		content.Description,
 		content.Image,
 		content.ReadTime,
-		content.HTML,
+		content.JSON,
 	)
 
 	if err != nil {

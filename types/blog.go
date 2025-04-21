@@ -47,7 +47,7 @@ type BlogContent struct {
 	Description string    `json:"description" db:"description"`
 	Image       string    `json:"image" db:"image"`
 	ReadTime    int       `json:"readTime" db:"read_time"`
-	HTML        string    `json:"html" db:"html"`
+	JSON        string    `json:"json" db:"json"`
 }
 
 // BlogStats - blog statistics
@@ -80,19 +80,6 @@ type BlogPostView struct {
 	PublishedAt time.Time      `json:"publishedAt"`
 }
 
-// BlogPostListView - blog post list view structure
-type BlogPostCardView struct {
-	ID        string          `json:"id"`
-	GroupID   string          `json:"groupId"`
-	Slug      string          `json:"slug"`
-	Language  string          `json:"language"`
-	Featured  bool            `json:"featured"`
-	Status    BlogStatus      `json:"status"`
-	Content   ContentCardView `json:"content"`
-	CreatedAt time.Time       `json:"createdAt"`
-	UpdatedAt time.Time       `json:"updatedAt"`
-}
-
 // MetadataView - metadata view structure
 type MetadataView struct {
 	Title       string `json:"title"`
@@ -106,7 +93,20 @@ type ContentView struct {
 	Description string `json:"description"`
 	Image       string `json:"image"`
 	ReadTime    int    `json:"readTime"`
-	HTML        string `json:"html"`
+	JSON        string `json:"json"`
+}
+
+// BlogPostListView - blog post list view structure
+type BlogPostCardView struct {
+	ID        string          `json:"id"`
+	GroupID   string          `json:"groupId"`
+	Slug      string          `json:"slug"`
+	Language  string          `json:"language"`
+	Featured  bool            `json:"featured"`
+	Status    BlogStatus      `json:"status"`
+	Content   ContentCardView `json:"content"`
+	CreatedAt time.Time       `json:"createdAt"`
+	UpdatedAt time.Time       `json:"updatedAt"`
 }
 
 type ContentCardView struct {
@@ -165,7 +165,7 @@ type ContentInput struct {
 	Description string `json:"description" binding:"required"`
 	Image       string `json:"image" binding:"required"`
 	ReadTime    int    `json:"readTime" binding:"required"`
-	HTML        string `json:"html" binding:"required"`
+	JSON        string `json:"json" binding:"required"`
 }
 
 // CategoryInput - category creation input
@@ -209,3 +209,10 @@ const (
 	SortAsc  SortDirection = "asc"
 	SortDesc SortDirection = "desc"
 )
+
+// ----- UPDATE STRUCTURES -----
+
+type BlogUpdateStatusInput struct {
+	ID     string     `json:"id" binding:"required"`
+	Status BlogStatus `json:"status" binding:"required"`
+}
