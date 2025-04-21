@@ -220,6 +220,7 @@ type BlogUpdateInput struct {
 	GroupID    string        `json:"groupId" binding:"required"`
 	Slug       string        `json:"slug" binding:"required"`
 	Language   string        `json:"language" binding:"required"`
+	Status     BlogStatus    `json:"status"`
 	Featured   bool          `json:"featured"`
 	Metadata   MetadataInput `json:"metadata" binding:"required"`
 	Content    ContentInput  `json:"content" binding:"required"`

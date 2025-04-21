@@ -81,8 +81,8 @@ func (r *Repository) updateBlogPostDetails(tx *sql.Tx, blogID uuid.UUID, input t
 
 	query := `
 		UPDATE blog_posts
-		SET group_id = $1, slug = $2, language = $3, featured = $4, updated_at = $5
-		WHERE id = $6
+		SET group_id = $1, slug = $2, language = $3, featured = $4, updated_at = $5, status = $6
+		WHERE id = $7
 	`
 
 	now := time.Now()
@@ -93,6 +93,7 @@ func (r *Repository) updateBlogPostDetails(tx *sql.Tx, blogID uuid.UUID, input t
 		input.Language,
 		input.Featured,
 		now,
+		input.Status,
 		blogID,
 	)
 

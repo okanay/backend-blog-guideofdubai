@@ -80,7 +80,6 @@ func (r *Repository) CreateBlogSkeleton(tx *sql.Tx, input types.BlogPostCreateIn
 	defer utils.TimeTrack(time.Now(), "Blog -> Create Blog Skeleton")
 
 	var blogID uuid.UUID
-	status := types.BlogStatusDraft
 
 	query := `
 		INSERT INTO blog_posts (
@@ -98,7 +97,7 @@ func (r *Repository) CreateBlogSkeleton(tx *sql.Tx, input types.BlogPostCreateIn
 		input.Slug,
 		input.Language,
 		input.Featured,
-		status,
+		input.Status,
 		now,
 		now,
 	).Scan(&blogID)

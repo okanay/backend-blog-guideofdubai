@@ -72,7 +72,7 @@ func (h *Handler) SelectBlogCards(c *gin.Context) {
 	if sortBy := c.Query("sortBy"); sortBy != "" {
 		queryOptions.SortBy = sortBy
 	} else {
-		queryOptions.SortBy = "created_at" // Varsayılan sıralama alanı
+		queryOptions.SortBy = "created_at"
 	}
 
 	// SortDirection
