@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS blog_content (
     description TEXT,
     image TEXT,
     read_time INTEGER DEFAULT 0,
+    html TEXT NOT NULL,
     json TEXT NOT NULL
 );
 

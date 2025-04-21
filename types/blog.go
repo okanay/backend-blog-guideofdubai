@@ -47,6 +47,7 @@ type BlogContent struct {
 	Description string    `json:"description" db:"description"`
 	Image       string    `json:"image" db:"image"`
 	ReadTime    int       `json:"readTime" db:"read_time"`
+	HTML        string    `json:"html" db:"html"`
 	JSON        string    `json:"json" db:"json"`
 }
 
@@ -93,6 +94,7 @@ type ContentView struct {
 	Description string `json:"description"`
 	Image       string `json:"image"`
 	ReadTime    int    `json:"readTime"`
+	HTML        string `json:"html"`
 	JSON        string `json:"json"`
 }
 
@@ -165,6 +167,7 @@ type ContentInput struct {
 	Description string `json:"description" binding:"required"`
 	Image       string `json:"image" binding:"required"`
 	ReadTime    int    `json:"readTime" binding:"required"`
+	HTML        string `json:"html" binding:"required"`
 	JSON        string `json:"json" binding:"required"`
 }
 

@@ -79,6 +79,7 @@ func (r *Repository) SelectBlogBody(blogID uuid.UUID) (*types.BlogPostView, erro
             bc.description as content_description,
             bc.image as content_image,
             bc.read_time,
+            bc.html,
             bc.json,
 
             -- Statistics
@@ -119,6 +120,7 @@ func (r *Repository) SelectBlogBody(blogID uuid.UUID) (*types.BlogPostView, erro
 		&contentDesc,
 		&content.Image,
 		&content.ReadTime,
+		&content.HTML,
 		&content.JSON,
 
 		&stats.Views,
@@ -306,7 +308,7 @@ func (r *Repository) SelectBlogContent(blogID uuid.UUID) (types.ContentView, err
 	var contentDesc sql.NullString
 
 	query := `
-		SELECT title, description, read_time, json
+		SELECT title, description, read_time, html, json
 		FROM blog_content
 		WHERE id = $1
 	`
@@ -315,6 +317,7 @@ func (r *Repository) SelectBlogContent(blogID uuid.UUID) (types.ContentView, err
 		&content.Title,
 		&contentDesc,
 		&content.ReadTime,
+		&content.HTML,
 		&content.JSON,
 	)
 	if err != nil {
