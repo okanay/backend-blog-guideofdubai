@@ -67,15 +67,13 @@ func main() {
 		blogPublic.GET("", bh.SelectBlogByGroupID)
 		blogPublic.GET("/cards", bh.SelectBlogCards)
 		blogPublic.GET("/:id", bh.SelectBlogByID)
+		blogPublic.GET("/tags", bh.SelectAllTags)
+		blogPublic.GET("/categories", bh.SelectAllCategories)
 	}
 
 	// Blog Routes - Authenticated Access
 	blogAuth := auth.Group("/blog")
 	{
-		// Listeleme işlemleri
-		blogAuth.GET("/tags", bh.SelectAllTags)
-		blogAuth.GET("/categories", bh.SelectAllCategories)
-
 		// Oluşturma işlemleri
 		blogAuth.POST("", bh.CreateBlogPost)
 		blogAuth.POST("/tag", bh.CreateBlogTag)
