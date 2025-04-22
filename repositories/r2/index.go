@@ -1,4 +1,4 @@
-package StorageRepository
+package R2Repository
 
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"

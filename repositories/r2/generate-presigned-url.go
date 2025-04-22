@@ -1,4 +1,4 @@
-package StorageRepository
+package R2Repository
 
 import (
 	"context"
