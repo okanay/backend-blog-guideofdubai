@@ -34,17 +34,22 @@ type ImageCreateInput struct {
 }
 
 // UploadSignature imza tablosundaki kayıtlar için
-type UploadSignature struct {
-	ID           uuid.UUID `json:"id"`
-	UserID       uuid.UUID `json:"userId"`
-	ImageID      uuid.UUID `json:"imageId"`
-	PresignedURL string    `json:"presignedUrl"`
-	UploadURL    string    `json:"uploadUrl"`
-	Filename     string    `json:"filename"`
-	FileType     string    `json:"fileType"`
-	ExpiresAt    time.Time `json:"expiresAt"`
-	Completed    bool      `json:"completed"`
-	CreatedAt    time.Time `json:"createdAt"`
+type UploadSignatureInput struct {
+	PresignedURL string
+	UploadURL    string
+	Filename     string
+	FileType     string
+	ExpiresAt    time.Time
+}
+
+type SaveImageInput struct {
+	URL         string
+	Filename    string
+	AltText     string
+	FileType    string
+	SizeInBytes int
+	Width       int
+	Height      int
 }
 
 // SignatureCreateInput bir imza oluşturmak için girdi
@@ -61,13 +66,35 @@ type SignatureCreateInput struct {
 type PresignURLInput struct {
 	Filename    string `json:"filename" binding:"required"`
 	ContentType string `json:"contentType" binding:"required"`
-	Folder      string `json:"folder" binding:"required"`
+	SizeInBytes int64  `json:"sizeInBytes" binding:"required"`
 }
 
-// PresignedURLOutput Presigned URL oluşturma çıktısı
 type PresignedURLOutput struct {
 	PresignedURL string    `json:"presignedUrl"`
 	UploadURL    string    `json:"uploadUrl"`
 	ObjectKey    string    `json:"objectKey"`
 	ExpiresAt    time.Time `json:"expiresAt"`
+}
+
+type CreatePresignedURLInput struct {
+	Filename    string `json:"filename" binding:"required"`
+	ContentType string `json:"contentType" binding:"required"`
+	SizeInBytes int64  `json:"sizeInBytes" binding:"required"`
+}
+
+type CreatePresignedURLResponse struct {
+	ID           string    `json:"id"`
+	PresignedURL string    `json:"presignedUrl"`
+	UploadURL    string    `json:"uploadUrl"`
+	ExpiresAt    time.Time `json:"expiresAt"`
+	Filename     string    `json:"filename"`
+}
+
+type ConfirmUploadInput struct {
+	SignatureID string `json:"signatureId" binding:"required"`
+	URL         string `json:"url" binding:"required"`
+	Width       int    `json:"width" binding:"required"`
+	Height      int    `json:"height" binding:"required"`
+	SizeInBytes int    `json:"sizeInBytes" binding:"required"`
+	AltText     string `json:"altText"`
 }

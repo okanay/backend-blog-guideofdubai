@@ -10,9 +10,12 @@ import (
 	db "github.com/okanay/backend-blog-guideofdubai/database"
 	"github.com/okanay/backend-blog-guideofdubai/handlers"
 	BlogHandler "github.com/okanay/backend-blog-guideofdubai/handlers/blog"
+	ImageHandler "github.com/okanay/backend-blog-guideofdubai/handlers/image"
 	UserHandler "github.com/okanay/backend-blog-guideofdubai/handlers/user"
 	mw "github.com/okanay/backend-blog-guideofdubai/middlewares"
 	BlogRepository "github.com/okanay/backend-blog-guideofdubai/repositories/blog"
+	ImageRepository "github.com/okanay/backend-blog-guideofdubai/repositories/image"
+	R2Repository "github.com/okanay/backend-blog-guideofdubai/repositories/r2"
 	TokenRepository "github.com/okanay/backend-blog-guideofdubai/repositories/token"
 	UserRepository "github.com/okanay/backend-blog-guideofdubai/repositories/user"
 )
@@ -36,22 +39,22 @@ func main() {
 	tr := TokenRepository.NewRepository(sqlDB)
 	br := BlogRepository.NewRepository(sqlDB)
 
-	// ir := ImageRepository.NewRepository(sqlDB)
-	// r2 := R2Repository.NewRepository(
-	// 	os.Getenv("R2_ACCOUNT_ID"),
-	// 	os.Getenv("R2_ACCESS_KEY_ID"),
-	// 	os.Getenv("R2_ACCESS_KEY_SECRET"),
-	// 	os.Getenv("R2_BUCKET_NAME"),
-	// 	os.Getenv("R2_FOLDER_NAME"),
-	// 	os.Getenv("R2_PUBLIC_URL_BASE"),
-	// 	os.Getenv("R2_ENDPOINT"),
-	// )
+	ir := ImageRepository.NewRepository(sqlDB)
+	r2 := R2Repository.NewRepository(
+		os.Getenv("R2_ACCOUNT_ID"),
+		os.Getenv("R2_ACCESS_KEY_ID"),
+		os.Getenv("R2_ACCESS_KEY_SECRET"),
+		os.Getenv("R2_BUCKET_NAME"),
+		os.Getenv("R2_FOLDER_NAME"),
+		os.Getenv("R2_PUBLIC_URL_BASE"),
+		os.Getenv("R2_ENDPOINT"),
+	)
 
 	// Handler Initialization
 	mh := handlers.NewHandler()
 	uh := UserHandler.NewHandler(ur, tr)
 	bh := BlogHandler.NewHandler(br)
-	// ih := ImageHandler.NewHandler(ir, r2)
+	ih := ImageHandler.NewHandler(ir, r2)
 
 	// Router ve Middleware Yapılandırması
 	router := gin.Default()
@@ -97,6 +100,14 @@ func main() {
 
 		// Silme işlemleri
 		blogAuth.DELETE("/:id", bh.DeleteBlogByID)
+	}
+
+	imageAuth := auth.Group("/images")
+	{
+		imageAuth.POST("/presign", ih.CreatePresignedURL)
+		imageAuth.POST("/confirm", ih.ConfirmUpload)
+		imageAuth.GET("", ih.GetUserImages)
+		imageAuth.DELETE("/:id", ih.DeleteImage)
 	}
 
 	// Start Server
