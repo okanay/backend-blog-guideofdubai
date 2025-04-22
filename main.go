@@ -36,10 +36,22 @@ func main() {
 	tr := TokenRepository.NewRepository(sqlDB)
 	br := BlogRepository.NewRepository(sqlDB)
 
+	// ir := ImageRepository.NewRepository(sqlDB)
+	// sr := StorageRepository.NewRepository(
+	// 	os.Getenv("R2_ACCOUNT_ID"),
+	// 	os.Getenv("R2_ACCESS_KEY_ID"),
+	// 	os.Getenv("R2_ACCESS_KEY_SECRET"),
+	// 	os.Getenv("R2_BUCKET_NAME"),
+	// 	os.Getenv("R2_FOLDER_NAME"),
+	// 	os.Getenv("R2_PUBLIC_URL_BASE"),
+	// 	os.Getenv("R2_ENDPOINT"),
+	// )
+
 	// Handler Initialization
 	mh := handlers.NewHandler()
 	uh := UserHandler.NewHandler(ur, tr)
 	bh := BlogHandler.NewHandler(br)
+	// ih := ImageHandler.NewHandler(ir, sr)
 
 	// Router ve Middleware Yapılandırması
 	router := gin.Default()
