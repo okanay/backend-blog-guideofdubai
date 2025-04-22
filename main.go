@@ -37,7 +37,7 @@ func main() {
 	br := BlogRepository.NewRepository(sqlDB)
 
 	// ir := ImageRepository.NewRepository(sqlDB)
-	// sr := StorageRepository.NewRepository(
+	// r2 := R2Repository.NewRepository(
 	// 	os.Getenv("R2_ACCOUNT_ID"),
 	// 	os.Getenv("R2_ACCESS_KEY_ID"),
 	// 	os.Getenv("R2_ACCESS_KEY_SECRET"),
@@ -51,7 +51,7 @@ func main() {
 	mh := handlers.NewHandler()
 	uh := UserHandler.NewHandler(ur, tr)
 	bh := BlogHandler.NewHandler(br)
-	// ih := ImageHandler.NewHandler(ir, sr)
+	// ih := ImageHandler.NewHandler(ir, r2)
 
 	// Router ve Middleware Yapılandırması
 	router := gin.Default()
