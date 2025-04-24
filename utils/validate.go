@@ -86,3 +86,16 @@ func ValidateQuery(c *gin.Context, queryName string) (string, bool) {
 	}
 	return query, true
 }
+
+// ValidateFileType, dosya türünü doğrular
+func ValidateFileType(contentType string) bool {
+	validTypes := map[string]bool{
+		"image/jpeg":    true,
+		"image/png":     true,
+		"image/webp":    true,
+		"image/gif":     true,
+		"image/svg+xml": true,
+	}
+
+	return validTypes[contentType]
+}

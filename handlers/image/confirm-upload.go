@@ -34,15 +34,31 @@ func (h *Handler) ConfirmUpload(c *gin.Context) {
 		return
 	}
 
-	// Önce imza kaydını bul (bu kısım eksik - bir GetSignatureByID fonksiyonu eklenebilir)
-	// ...
+	signature, err := h.ImageRepository.GetSignatureByID(c.Request.Context(), signatureID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "signature_fetch_failed",
+			"message": "İmza bilgileri alınamadı: " + err.Error(),
+		})
+		return
+	}
+
+	if signature.UserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{
+			"success": false,
+			"error":   "permission_denied",
+			"message": "Bu yükleme işlemi için yetkiniz yok",
+		})
+		return
+	}
 
 	// Resmi veritabanına kaydet
 	imageInput := types.SaveImageInput{
 		URL:         input.URL,
-		Filename:    "filename-placeholder", // Gerçek değerle değiştirilmeli
+		Filename:    signature.Filename,
 		AltText:     input.AltText,
-		FileType:    "content-type-placeholder", // Gerçek değerle değiştirilmeli
+		FileType:    signature.FileType,
 		SizeInBytes: input.SizeInBytes,
 		Width:       input.Width,
 		Height:      input.Height,

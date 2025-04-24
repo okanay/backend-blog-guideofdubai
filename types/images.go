@@ -33,6 +33,19 @@ type ImageCreateInput struct {
 	Height      int    `json:"height,omitempty"`
 }
 
+type UploadSignature struct {
+	ID           uuid.UUID `json:"id"`
+	UserID       uuid.UUID `json:"userId"`
+	ImageID      uuid.UUID `json:"imageId"`
+	PresignedURL string    `json:"presignedUrl"`
+	UploadURL    string    `json:"uploadUrl"`
+	Filename     string    `json:"filename"`
+	FileType     string    `json:"fileType"`
+	ExpiresAt    time.Time `json:"expiresAt"`
+	Completed    bool      `json:"completed"`
+	CreatedAt    time.Time `json:"createdAt"`
+}
+
 // UploadSignature imza tablosundaki kayıtlar için
 type UploadSignatureInput struct {
 	PresignedURL string
