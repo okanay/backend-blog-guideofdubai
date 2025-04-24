@@ -1,6 +1,7 @@
 package BlogHandler
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -16,6 +17,9 @@ func (h *Handler) UpdateBlogStatus(c *gin.Context) {
 	if err != nil {
 		return
 	}
+
+	fmt.Println("Invalid ID format", err)
+	defer fmt.Println("Error occurred:", err)
 
 	// Blog ID'yi doğrula
 	blogID, err := uuid.Parse(request.ID)
