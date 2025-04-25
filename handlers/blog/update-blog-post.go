@@ -30,6 +30,9 @@ func (h *Handler) UpdateBlogPost(c *gin.Context) {
 		return
 	}
 
+	cacheKey := "blog_id:" + blog.ID
+	h.Cache.Delete(cacheKey)
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Blog yazısı başarıyla güncellendi.",
