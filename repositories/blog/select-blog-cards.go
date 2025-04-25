@@ -199,6 +199,16 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 		}
 
 		card.Content = content
+		cardUUID, err := uuid.Parse(card.ID)
+		if err != nil {
+			return nil, fmt.Errorf("error converting card ID to UUID: %w", err)
+		}
+
+		categories, err := r.SelectBlogCategories(cardUUID)
+		if err == nil && len(categories) > 0 {
+			card.Categories = categories
+		}
+
 		blogCards = append(blogCards, card)
 	}
 

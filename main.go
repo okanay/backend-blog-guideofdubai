@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -18,6 +19,7 @@ import (
 	R2Repository "github.com/okanay/backend-blog-guideofdubai/repositories/r2"
 	TokenRepository "github.com/okanay/backend-blog-guideofdubai/repositories/token"
 	UserRepository "github.com/okanay/backend-blog-guideofdubai/repositories/user"
+	cache "github.com/okanay/backend-blog-guideofdubai/services"
 )
 
 func main() {
@@ -50,10 +52,13 @@ func main() {
 		os.Getenv("R2_ENDPOINT"),
 	)
 
+	// Cache Initialization - TTL'i istediğiniz değere ayarlayabilirsiniz
+	cache := cache.NewCache(45 * time.Minute)
+
 	// Handler Initialization
 	mh := handlers.NewHandler()
 	uh := UserHandler.NewHandler(ur, tr)
-	bh := BlogHandler.NewHandler(br)
+	bh := BlogHandler.NewHandler(br, cache)
 	ih := ImageHandler.NewHandler(ir, r2)
 
 	// Router ve Middleware Yapılandırması
@@ -84,6 +89,8 @@ func main() {
 		blogPublic.GET("/:id", bh.SelectBlogByID)
 		blogPublic.GET("/tags", bh.SelectAllTags)
 		blogPublic.GET("/categories", bh.SelectAllCategories)
+		blogPublic.GET("/recent", bh.SelectRecentPosts)
+		blogPublic.GET("/featured", bh.SelectFeaturedPosts)
 	}
 
 	// Blog Routes - Authenticated Access

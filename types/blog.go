@@ -100,15 +100,16 @@ type ContentView struct {
 
 // BlogPostListView - blog post list view structure
 type BlogPostCardView struct {
-	ID        string          `json:"id"`
-	GroupID   string          `json:"groupId"`
-	Slug      string          `json:"slug"`
-	Language  string          `json:"language"`
-	Featured  bool            `json:"featured"`
-	Status    BlogStatus      `json:"status"`
-	Content   ContentCardView `json:"content"`
-	CreatedAt time.Time       `json:"createdAt"`
-	UpdatedAt time.Time       `json:"updatedAt"`
+	ID         string          `json:"id"`
+	GroupID    string          `json:"groupId"`
+	Slug       string          `json:"slug"`
+	Language   string          `json:"language"`
+	Featured   bool            `json:"featured"`
+	Status     BlogStatus      `json:"status"`
+	Content    ContentCardView `json:"content"`
+	Categories []CategoryView  `json:"categories,omitempty"`
+	CreatedAt  time.Time       `json:"createdAt"`
+	UpdatedAt  time.Time       `json:"updatedAt"`
 }
 
 type ContentCardView struct {
