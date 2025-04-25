@@ -27,6 +27,8 @@ func (h *Handler) DeleteBlogByID(c *gin.Context) {
 		return
 	}
 
+	h.Cache.Clear()
+
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,
 	})

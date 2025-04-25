@@ -33,6 +33,8 @@ func (h *Handler) CreateBlogPost(c *gin.Context) {
 		return
 	}
 
+	h.Cache.Clear()
+
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,
 		"blog":    blog,

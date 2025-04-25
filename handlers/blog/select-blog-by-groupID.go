@@ -1,6 +1,7 @@
 package BlogHandler
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -11,6 +12,21 @@ func (h *Handler) SelectBlogByGroupID(c *gin.Context) {
 	// Query parametrelerini al
 	slug := c.Query("slug")
 	lang := c.Query("lang")
+
+	cacheKey := "blog_id:" + slug + ":" + lang
+	// Cache'te var mı kontrol et
+	if cachedData, exists := h.Cache.Get(cacheKey); exists {
+		// Cache'ten veriyi JSON'a dönüştür
+		var blog types.BlogPostView
+		if err := json.Unmarshal(cachedData, &blog); err == nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": true,
+				"blog":    blog,
+				"cached":  true,
+			})
+			return
+		}
+	}
 
 	// GroupID parametresinin varlığını kontrol et
 	if slug == "" {
