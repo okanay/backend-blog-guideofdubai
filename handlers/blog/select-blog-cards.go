@@ -1,6 +1,8 @@
 package BlogHandler
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -86,6 +88,20 @@ func (h *Handler) SelectBlogCards(c *gin.Context) {
 		queryOptions.SortDirection = types.SortDesc // Varsayılan sıralama yönü
 	}
 
+	cacheKey := fmt.Sprintf("blog_cards: %v", queryOptions)
+	if cachedData, exists := h.Cache.Get(cacheKey); exists {
+		var blogs []types.BlogPostCardView
+		if err := json.Unmarshal(cachedData, &blogs); err == nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": true,
+				"blogs":   blogs,
+				"count":   len(blogs),
+				"cached":  true,
+			})
+			return
+		}
+	}
+
 	// Repository fonksiyonunu çağır
 	blogs, err := h.BlogRepository.SelectBlogCards(queryOptions)
 	if err != nil {
@@ -94,6 +110,11 @@ func (h *Handler) SelectBlogCards(c *gin.Context) {
 			"error":   err.Error(),
 		})
 		return
+	}
+
+	// Veriyi JSON'a çevir ve cache'e kaydet
+	if jsonData, err := json.Marshal(blogs); err == nil {
+		h.Cache.Set(cacheKey, jsonData)
 	}
 
 	// Sonuçları ve toplam sayısını döndür

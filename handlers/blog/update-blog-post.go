@@ -30,8 +30,7 @@ func (h *Handler) UpdateBlogPost(c *gin.Context) {
 		return
 	}
 
-	cacheKey := "blog_id:" + blog.ID
-	h.Cache.Delete(cacheKey)
+	h.Cache.Clear()
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
