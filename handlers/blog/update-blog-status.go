@@ -42,6 +42,8 @@ func (h *Handler) UpdateBlogStatus(c *gin.Context) {
 		return
 	}
 
+	h.Cache.Clear()
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Blog yazısı durumu başarıyla güncellendi.",
