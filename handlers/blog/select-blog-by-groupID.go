@@ -1,7 +1,6 @@
 package BlogHandler
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -13,37 +12,32 @@ func (h *Handler) SelectBlogByGroupID(c *gin.Context) {
 	slug := c.Query("slug")
 	lang := c.Query("lang")
 
-	cacheKey := "blog_id:" + slug + ":" + lang
-	// Cache'te var mı kontrol et
-	if cachedData, exists := h.Cache.Get(cacheKey); exists {
-		// Cache'ten veriyi JSON'a dönüştür
-		var blog types.BlogPostView
-		if err := json.Unmarshal(cachedData, &blog); err == nil {
-			c.JSON(http.StatusOK, gin.H{
-				"success": true,
-				"blog":    blog,
-				"cached":  true,
-			})
-			return
-		}
-	}
-
-	// GroupID parametresinin varlığını kontrol et
+	// Parametrelerin varlığını kontrol et
 	if slug == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
 			"error":   "missing_parameter",
-			"message": "groupId parametresi gereklidir.",
+			"message": "slug parametresi gereklidir.",
 		})
 		return
 	}
 
-	// Language parametresinin varlığını kontrol et
 	if lang == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
 			"error":   "missing_parameter",
 			"message": "lang parametresi gereklidir.",
+		})
+		return
+	}
+
+	// Cache'den blogu kontrol et
+	blog, exists := h.BlogCache.GetBlogByGroupIDAndLang(slug, lang)
+	if exists {
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"blog":    blog,
+			"cached":  true,
 		})
 		return
 	}
@@ -55,7 +49,7 @@ func (h *Handler) SelectBlogByGroupID(c *gin.Context) {
 	}
 
 	// Repository'den blog bilgilerini getir
-	blogView, err := h.BlogRepository.SelectBlogByGroupID(request)
+	blog, err := h.BlogRepository.SelectBlogByGroupID(request)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"success": false,
@@ -65,9 +59,13 @@ func (h *Handler) SelectBlogByGroupID(c *gin.Context) {
 		return
 	}
 
-	// Başarılı yanıt döndür (HTTP 200 OK kullanılıyor - HTTP 201 Created yerine)
+	// Blog'u cache'e kaydet
+	h.BlogCache.SaveBlogByGroupIDAndLang(slug, lang, blog)
+
+	// Başarılı yanıt döndür
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"blog":    blogView,
+		"blog":    blog,
+		"cached":  false,
 	})
 }

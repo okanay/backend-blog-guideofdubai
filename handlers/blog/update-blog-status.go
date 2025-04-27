@@ -1,7 +1,6 @@
 package BlogHandler
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -17,9 +16,6 @@ func (h *Handler) UpdateBlogStatus(c *gin.Context) {
 	if err != nil {
 		return
 	}
-
-	fmt.Println("Invalid ID format", err)
-	defer fmt.Println("Error occurred:", err)
 
 	// Blog ID'yi doğrula
 	blogID, err := uuid.Parse(request.ID)
@@ -42,7 +38,15 @@ func (h *Handler) UpdateBlogStatus(c *gin.Context) {
 		return
 	}
 
-	h.Cache.Clear()
+	// İlgili blogun cache'ini temizle
+	h.BlogCache.InvalidateBlogByID(blogID)
+
+	// Durum değişiklikleri genel listeleri etkileyebileceğinden özellikli cache'leri de temizle
+	if request.Status == types.BlogStatusPublished || request.Status == types.BlogStatusDeleted ||
+		request.Status == types.BlogStatusArchived {
+		// Öne çıkan ve son eklenen yazıları da içeren tüm listeye dayalı cache'leri temizle
+		h.BlogCache.InvalidateAllBlogs()
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,

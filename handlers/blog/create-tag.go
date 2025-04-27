@@ -28,6 +28,10 @@ func (h *Handler) CreateBlogTag(c *gin.Context) {
 		return
 	}
 
+	// Etiket oluşturulduğunda etiket ile ilgili önbellekleri temizle
+	// Bu durumda tüm blog önbelleklerini temizlemek en güvenli yaklaşımdır
+	h.BlogCache.InvalidateAllBlogs()
+
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,
 		"tag":     tag,

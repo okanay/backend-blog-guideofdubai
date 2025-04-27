@@ -52,13 +52,12 @@ func main() {
 		os.Getenv("R2_ENDPOINT"),
 	)
 
-	// Cache Initialization - TTL'i istediğiniz değere ayarlayabilirsiniz
-	cache := cache.NewCache(45 * time.Minute)
+	blogCache := cache.NewCache(20 * time.Minute)
 
 	// Handler Initialization
 	mh := handlers.NewHandler()
 	uh := UserHandler.NewHandler(ur, tr)
-	bh := BlogHandler.NewHandler(br, cache)
+	bh := BlogHandler.NewHandler(br, blogCache)
 	ih := ImageHandler.NewHandler(ir, r2)
 
 	// Router ve Middleware Yapılandırması

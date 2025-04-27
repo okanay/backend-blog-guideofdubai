@@ -27,7 +27,11 @@ func (h *Handler) DeleteBlogByID(c *gin.Context) {
 		return
 	}
 
-	h.Cache.Clear()
+	// İlgili blogun cache'ini temizle
+	h.BlogCache.InvalidateBlogByID(id)
+
+	// Blog silindiğinde tüm listeler etkileneceğinden tüm cache'i temizle
+	h.BlogCache.InvalidateAllBlogs()
 
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,

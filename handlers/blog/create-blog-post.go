@@ -33,7 +33,9 @@ func (h *Handler) CreateBlogPost(c *gin.Context) {
 		return
 	}
 
-	h.Cache.Clear()
+	// Yeni blog yazısı oluşturulduğunda, tüm listeleme önbellekleri geçersiz hale gelir
+	// özellikle recent posts ve kategori/etiket listeleri etkilenecektir
+	h.BlogCache.InvalidateAllBlogs()
 
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,

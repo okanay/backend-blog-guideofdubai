@@ -27,6 +27,10 @@ func (h *Handler) CreateBlogCategory(c *gin.Context) {
 		return
 	}
 
+	// Kategori oluşturulduğunda kategori ile ilgili önbellekleri temizle
+	// Bu durumda tüm blog önbelleklerini temizlemek en güvenli yaklaşımdır
+	h.BlogCache.InvalidateAllBlogs()
+
 	c.JSON(http.StatusCreated, gin.H{
 		"success":  true,
 		"category": category,
