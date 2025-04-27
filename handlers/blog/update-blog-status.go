@@ -38,15 +38,7 @@ func (h *Handler) UpdateBlogStatus(c *gin.Context) {
 		return
 	}
 
-	// İlgili blogun cache'ini temizle
-	h.BlogCache.InvalidateBlogByID(blogID)
-
-	// Durum değişiklikleri genel listeleri etkileyebileceğinden özellikli cache'leri de temizle
-	if request.Status == types.BlogStatusPublished || request.Status == types.BlogStatusDeleted ||
-		request.Status == types.BlogStatusArchived {
-		// Öne çıkan ve son eklenen yazıları da içeren tüm listeye dayalı cache'leri temizle
-		h.BlogCache.InvalidateAllBlogs()
-	}
+	h.BlogCache.InvalidateAllBlogs()
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,

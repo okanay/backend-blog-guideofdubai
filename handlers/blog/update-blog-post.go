@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/okanay/backend-blog-guideofdubai/types"
 	"github.com/okanay/backend-blog-guideofdubai/utils"
 )
@@ -31,15 +30,7 @@ func (h *Handler) UpdateBlogPost(c *gin.Context) {
 		return
 	}
 
-	// Tüm cache'i temizle - Daha hassas bir yaklaşım olarak sadece ilgili blogun cache'ini temizleyebiliriz
-	blogID, _ := uuid.Parse(request.ID)
-	if blogID != uuid.Nil {
-		// İlgili blogun cache'ini temizle
-		h.BlogCache.InvalidateBlogByID(blogID)
-	} else {
-		// ID geçersizse tüm cache'i temizle
-		h.BlogCache.InvalidateAllBlogs()
-	}
+	h.BlogCache.InvalidateAllBlogs()
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
