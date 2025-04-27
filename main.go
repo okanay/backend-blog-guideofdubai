@@ -90,6 +90,7 @@ func main() {
 		blogPublic.GET("/categories", bh.SelectAllCategories)
 		blogPublic.GET("/recent", bh.SelectRecentPosts)
 		blogPublic.GET("/featured", bh.SelectFeaturedPosts)
+		blogPublic.GET("/related", bh.SelectRelatedPosts)
 	}
 
 	// Blog Routes - Authenticated Access

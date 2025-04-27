@@ -4,6 +4,7 @@ package cache
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/okanay/backend-blog-guideofdubai/types"
@@ -144,6 +145,37 @@ func (s *BlogCacheService) InvalidateAllBlogs() {
 func (s *BlogCacheService) InvalidateBlogByID(blogID uuid.UUID) {
 	cacheKey := fmt.Sprintf("blog_id:%s", blogID.String())
 	s.cache.Delete(cacheKey)
+}
+
+func (s *BlogCacheService) GetRelatedPosts(blogID uuid.UUID, categories []string, tags []string, language string) ([]types.BlogPostCardView, bool) {
+	cacheKey := fmt.Sprintf("related_posts:%s:%s:%s:%s",
+		blogID.String(), language, strings.Join(categories, "_"), strings.Join(tags, "_"))
+
+	cachedData, exists := s.cache.Get(cacheKey)
+	if !exists {
+		return nil, false
+	}
+
+	var posts []types.BlogPostCardView
+	if err := json.Unmarshal(cachedData, &posts); err != nil {
+		return nil, false
+	}
+
+	return posts, true
+}
+
+// SaveRelatedPosts ilgili blog yazılarını cache'e kaydeder
+func (s *BlogCacheService) SaveRelatedPosts(blogID uuid.UUID, categories []string, tags []string, language string, posts []types.BlogPostCardView) error {
+	cacheKey := fmt.Sprintf("related_posts:%s:%s:%s:%s",
+		blogID.String(), language, strings.Join(categories, "_"), strings.Join(tags, "_"))
+
+	jsonData, err := json.Marshal(posts)
+	if err != nil {
+		return err
+	}
+
+	s.cache.Set(cacheKey, jsonData)
+	return nil
 }
 
 // Helper metotlar
