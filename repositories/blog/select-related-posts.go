@@ -1,6 +1,7 @@
 package BlogRepository
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,6 +19,78 @@ func (r *Repository) SelectRelatedPosts(
 ) ([]types.BlogPostCardView, error) {
 	defer utils.TimeTrack(time.Now(), "Blog -> Get Related Posts")
 
+	var relatedPosts []types.BlogPostCardView
+
+	// 1. Kategori/Tag/Language ile eşleşenler
+	query := makeRelatedPostQuery(true, true)
+	params := []any{pq.Array(categories), pq.Array(tags), excludeBlogID, language, limit}
+	posts, err := r.runRelatedPostQuery(query, params)
+	if err != nil {
+		return nil, err
+	}
+	relatedPosts = append(relatedPosts, posts...)
+	if len(relatedPosts) >= limit {
+		return relatedPosts[:limit], nil
+	}
+
+	// 2. Sadece Language ile eşleşenler
+	kalanLimit := limit - len(relatedPosts)
+	if kalanLimit > 0 {
+		query = makeRelatedPostQuery(false, true)
+		params = []any{pq.Array([]string{}), pq.Array([]string{}), excludeBlogID, language, kalanLimit}
+		posts, err = r.runRelatedPostQuery(query, params)
+		if err == nil {
+			for _, p := range posts {
+				alreadyExists := false
+				for _, rp := range relatedPosts {
+					if p.ID == rp.ID {
+						alreadyExists = true
+						break
+					}
+				}
+				if !alreadyExists {
+					relatedPosts = append(relatedPosts, p)
+				}
+			}
+		}
+	}
+	if len(relatedPosts) >= limit {
+		return relatedPosts[:limit], nil
+	}
+
+	// 3. Herhangi bir post (dil farketmez)
+	kalanLimit = limit - len(relatedPosts)
+	if kalanLimit > 0 {
+		query = makeRelatedPostQuery(false, false)
+		params = []any{pq.Array([]string{}), pq.Array([]string{}), excludeBlogID, kalanLimit}
+		posts, err = r.runRelatedPostQuery(query, params)
+		if err == nil {
+			for _, p := range posts {
+				alreadyExists := false
+				for _, rp := range relatedPosts {
+					if p.ID == rp.ID {
+						alreadyExists = true
+						break
+					}
+				}
+				if !alreadyExists {
+					relatedPosts = append(relatedPosts, p)
+				}
+			}
+		}
+	}
+
+	if len(relatedPosts) > limit {
+		relatedPosts = relatedPosts[:limit]
+	}
+	return relatedPosts, nil
+}
+
+func makeRelatedPostQuery(
+	mustMatchCategoryOrTag bool,
+	hasLanguage bool,
+) string {
+	// Query gövdesi
 	query := `
         SELECT
             bp.id,
@@ -48,15 +121,48 @@ func (r *Repository) SelectRelatedPosts(
         FROM blog_posts bp
         LEFT JOIN blog_content bc ON bp.id = bc.id
         WHERE bp.id != $3
-        AND bp.language = $4
         AND bp.status = 'published'
+    `
+	paramIdx := 4
+
+	if hasLanguage {
+		query += fmt.Sprintf(" AND bp.language = $%d", paramIdx)
+		paramIdx++
+	}
+
+	if mustMatchCategoryOrTag {
+		query += `
+            AND (
+                (ARRAY_LENGTH($1::text[], 1) > 0 AND EXISTS (
+                    SELECT 1 FROM blog_categories bc2
+                    WHERE bc2.blog_id = bp.id
+                    AND bc2.category_name = ANY($1::text[])
+                ))
+                OR
+                (ARRAY_LENGTH($2::text[], 1) > 0 AND EXISTS (
+                    SELECT 1 FROM blog_tags bt2
+                    WHERE bt2.blog_id = bp.id
+                    AND bt2.tag_name = ANY($2::text[])
+                ))
+            )
+        `
+	}
+
+	query += fmt.Sprintf(`
         ORDER BY
             match_score DESC,
             bp.created_at DESC
-        LIMIT $5
-    `
+        LIMIT $%d
+    `, paramIdx)
 
-	rows, err := r.db.Query(query, pq.Array(categories), pq.Array(tags), excludeBlogID, language, limit)
+	return query
+}
+
+func (r *Repository) runRelatedPostQuery(
+	query string,
+	params []any,
+) ([]types.BlogPostCardView, error) {
+	rows, err := r.db.Query(query, params...)
 	if err != nil {
 		return nil, err
 	}
@@ -84,14 +190,11 @@ func (r *Repository) SelectRelatedPosts(
 			&content.ReadTime,
 			&matchScore,
 		)
-
 		if err != nil {
 			continue
 		}
-
 		card.Content = content
 
-		// Kategori bilgilerini de ekle
 		cardID, _ := uuid.Parse(card.ID)
 		cardCategories, _ := r.SelectBlogCategories(cardID)
 		if len(cardCategories) > 0 {
