@@ -6,7 +6,11 @@ import (
 )
 
 func CorsConfig() gin.HandlerFunc {
-	var origins = []string{"http://localhost:3000", "https://blog-guideofdubai.vercel.app", "https://blog.project-test.info"}
+	var origins = []string{
+		"https://blog-guideofdubai.vercel.app",
+		"https://blog.project-test.info",
+		"https://new-blog.guideofdubai.com",
+		"https://blog.guideofdubai.com"}
 
 	if gin.Mode() == gin.DebugMode {
 		origins = append(origins, "http://localhost:3000")
