@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/okanay/backend-blog-guideofdubai/types"
 )
@@ -170,6 +171,36 @@ func (s *BlogCacheService) SaveRelatedPosts(blogID uuid.UUID, categories []strin
 		blogID.String(), language, strings.Join(categories, "_"), strings.Join(tags, "_"))
 
 	jsonData, err := json.Marshal(posts)
+	if err != nil {
+		return err
+	}
+
+	s.cache.Set(cacheKey, jsonData)
+	return nil
+}
+
+// GetSitemap sitemap verilerini cache'den getirir
+func (s *BlogCacheService) GetSitemap() ([]map[string]any, bool) {
+	cacheKey := "sitemap"
+
+	cachedData, exists := s.cache.Get(cacheKey)
+	if !exists {
+		return nil, false
+	}
+
+	var sitemap []map[string]any
+	if err := json.Unmarshal(cachedData, &sitemap); err != nil {
+		return nil, false
+	}
+
+	return sitemap, true
+}
+
+// SaveSitemap sitemap verilerini cache'e kaydeder
+func (s *BlogCacheService) SaveSitemap(sitemap []gin.H) error {
+	cacheKey := "sitemap"
+
+	jsonData, err := json.Marshal(sitemap)
 	if err != nil {
 		return err
 	}
