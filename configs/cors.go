@@ -10,7 +10,9 @@ func CorsConfig() gin.HandlerFunc {
 		"https://blog-guideofdubai.vercel.app",
 		"https://blog.project-test.info",
 		"https://new-blog.guideofdubai.com",
-		"https://blog.guideofdubai.com"}
+		"https://blog.guideofdubai.com",
+		"https://guideofdubai.com",
+	}
 
 	if gin.Mode() == gin.DebugMode {
 		origins = append(origins, "http://localhost:3000")
