@@ -49,7 +49,9 @@ func (h *Handler) SelectBlogSitemap(c *gin.Context) {
 		}
 
 		sitemapPages = append(sitemapPages, gin.H{
-			"url":        "/" + blog.Language + "/blog/" + blog.Slug,
+			"groupID":    blog.GroupID,
+			"slug":       blog.Slug,
+			"language":   blog.Language,
 			"lastmod":    blog.UpdatedAt.Format(time.RFC3339),
 			"priority":   priority,
 			"changefreq": "weekly",
