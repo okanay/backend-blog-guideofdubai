@@ -11,7 +11,9 @@ func CorsConfig() gin.HandlerFunc {
 		"https://blog.project-test.info",
 		"https://new-blog.guideofdubai.com",
 		"https://blog.guideofdubai.com",
+		"https://blogapi.guideofdubai.com",
 		"https://guideofdubai.com",
+		"https://guideofdubai.com/blog",
 	}
 
 	if gin.Mode() == gin.DebugMode {
