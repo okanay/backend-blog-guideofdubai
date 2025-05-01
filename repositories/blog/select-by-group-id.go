@@ -68,7 +68,7 @@ func (r *Repository) SelectBlogByGroupID(request types.BlogSelectByGroupIDInput)
 		FROM blog_posts
 		WHERE group_id = $1
 		  AND id != $2
-		  AND status != 'deleted'
+		  AND status = 'published'
 	`
 
 	rows, err := r.db.Query(altQuery, groupID, mainPostID)
