@@ -35,16 +35,94 @@ func (s *BlogCacheService) SaveBlogByID(blogID uuid.UUID, blog *types.BlogPostVi
 	return s.saveBlogToCache(cacheKey, blog)
 }
 
-// GetBlogByGroupIDAndLang blog'u group ID ve dile göre cache'den getirir
-func (s *BlogCacheService) GetBlogByGroupIDAndLang(groupID, lang string) (*types.BlogPostView, bool) {
-	cacheKey := fmt.Sprintf("blog_id:%s:%s", groupID, lang)
-	return s.getBlogFromCache(cacheKey)
+// GetBlogAndAlternativesBySlug blog ve alternatiflerini slug'a göre cache'den getirir
+func (s *BlogCacheService) GetBlogAndAlternativesBySlug(slug string) (*types.BlogPostView, []*types.BlogPostView, bool) {
+	cacheKey := fmt.Sprintf("blog_slug:%s", slug)
+
+	cachedData, exists := s.cache.Get(cacheKey)
+	if !exists {
+		return nil, nil, false
+	}
+
+	type cachedBlogGroup struct {
+		MainBlog     *types.BlogPostView   `json:"mainBlog"`
+		Alternatives []*types.BlogPostView `json:"alternatives"`
+	}
+
+	var blogGroup cachedBlogGroup
+	if err := json.Unmarshal(cachedData, &blogGroup); err != nil {
+		return nil, nil, false
+	}
+
+	return blogGroup.MainBlog, blogGroup.Alternatives, true
 }
 
-// SaveBlogByGroupIDAndLang blog'u group ID ve dile göre cache'e kaydeder
-func (s *BlogCacheService) SaveBlogByGroupIDAndLang(groupID, lang string, blog *types.BlogPostView) error {
-	cacheKey := fmt.Sprintf("blog_id:%s:%s", groupID, lang)
-	return s.saveBlogToCache(cacheKey, blog)
+// SaveBlogAndAlternativesBySlug blog ve alternatiflerini slug'a göre cache'e kaydeder
+func (s *BlogCacheService) SaveBlogAndAlternativesBySlug(slug string, mainBlog *types.BlogPostView, alternatives []*types.BlogPostView) error {
+	cacheKey := fmt.Sprintf("blog_slug:%s", slug)
+
+	type cachedBlogGroup struct {
+		MainBlog     *types.BlogPostView   `json:"mainBlog"`
+		Alternatives []*types.BlogPostView `json:"alternatives"`
+	}
+
+	blogGroup := cachedBlogGroup{
+		MainBlog:     mainBlog,
+		Alternatives: alternatives,
+	}
+
+	jsonData, err := json.Marshal(blogGroup)
+	if err != nil {
+		return err
+	}
+
+	s.cache.Set(cacheKey, jsonData)
+
+	// Ayrıca GroupID cache'i oluştur, eğer başka biri groupID ile sorgulama yaparsa diye
+	if mainBlog != nil && mainBlog.GroupID != "" {
+		groupCacheKey := fmt.Sprintf("blog_group:%s", mainBlog.GroupID)
+		s.cache.Set(groupCacheKey, jsonData)
+
+		// Ana blog için bireysel cache de tutalım
+		mainBlogID, err := uuid.Parse(mainBlog.ID)
+		if err == nil {
+			s.SaveBlogByID(mainBlogID, mainBlog)
+		}
+	}
+
+	// Alternatif bloglar için de bireysel cache tutalım
+	for _, alt := range alternatives {
+		altID, err := uuid.Parse(alt.ID)
+		if err == nil {
+			s.SaveBlogByID(altID, alt)
+
+			// Alternatif slug'lar için de cache tutalım
+			if alt.Slug != "" && alt.Slug != slug {
+				altSlugCacheKey := fmt.Sprintf("blog_slug:%s", alt.Slug)
+				// Alternatif cache'te ana blog olarak bu alternatifi, diğer alternatifler olarak da tüm listeyi koy
+				var altBlogGroup cachedBlogGroup
+				altBlogGroup.MainBlog = alt
+
+				// Ana blog dahil tüm diğer içerikleri alternatif olarak ekle
+				var otherBlogs []*types.BlogPostView
+				if mainBlog != nil && mainBlog.ID != alt.ID {
+					otherBlogs = append(otherBlogs, mainBlog)
+				}
+
+				for _, otherAlt := range alternatives {
+					if otherAlt.ID != alt.ID {
+						otherBlogs = append(otherBlogs, otherAlt)
+					}
+				}
+
+				altBlogGroup.Alternatives = otherBlogs
+				altJsonData, _ := json.Marshal(altBlogGroup)
+				s.cache.Set(altSlugCacheKey, altJsonData)
+			}
+		}
+	}
+
+	return nil
 }
 
 // GetBlogCards blog kartlarını sorgu parametrelerine göre cache'den getirir
