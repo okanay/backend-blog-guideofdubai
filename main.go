@@ -52,7 +52,7 @@ func main() {
 		os.Getenv("R2_ENDPOINT"),
 	)
 
-	blogCache := cache.NewCache(20 * time.Minute)
+	blogCache := cache.NewCache(24 * time.Hour)
 
 	// Handler Initialization
 	mh := handlers.NewHandler()
