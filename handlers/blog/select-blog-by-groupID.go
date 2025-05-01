@@ -29,24 +29,13 @@ func (h *Handler) SelectBlogByGroupID(c *gin.Context) {
 		return
 	}
 
-	// Cache kontrolü (opsiyonel)
-	blog, exists := h.BlogCache.GetBlogByGroupIDAndLang(slugOrGroupID, lang)
-	if exists {
-		c.JSON(http.StatusOK, gin.H{
-			"success":  true,
-			"blog":     blog,
-			"cached":   true,
-			"priority": 1,
-		})
-		return
-	}
-
 	request := types.BlogSelectByGroupIDInput{
 		SlugOrGroupID: slugOrGroupID,
 		Language:      lang,
 	}
 
-	blog, priority, err := h.BlogRepository.SelectBlogByGroupID(request)
+	// Yeni fonksiyon ile hem ana postu hem alternatifleri çekiyoruz
+	post, alternatives, err := h.BlogRepository.SelectBlogByGroupID(request)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"success": false,
@@ -56,13 +45,20 @@ func (h *Handler) SelectBlogByGroupID(c *gin.Context) {
 		return
 	}
 
-	h.BlogCache.SaveBlogByGroupIDAndLang(slugOrGroupID, lang, blog)
+	// Alternatifleri sadeleştir (dilersen sadece dil, slug, title dönebilirsin)
+	var altLinks []map[string]string
+	for _, alt := range alternatives {
+		altLinks = append(altLinks, map[string]string{
+			"language": alt.Language,
+			"slug":     alt.Slug,
+			"title":    alt.Metadata.Title,
+		})
+	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"success":  true,
-		"blog":     blog,
-		"cached":   false,
-		"priority": priority,
-		"fallback": priority > 2,
+		"success":      true,
+		"blog":         post,
+		"cached":       false,
+		"alternatives": altLinks,
 	})
 }
