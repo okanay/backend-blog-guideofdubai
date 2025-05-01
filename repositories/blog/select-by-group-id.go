@@ -35,7 +35,7 @@ func (r *Repository) SelectBlogByGroupID(request types.BlogSelectByGroupIDInput)
 			SELECT id, group_id
 			FROM blog_posts
 			WHERE group_id = $1
-			  AND status != 'deleted'
+			  AND status = 'published'
 			LIMIT 1
 		`
 		err = r.db.QueryRow(query, request.SlugOrGroupID).Scan(&mainPostID, &groupID)
