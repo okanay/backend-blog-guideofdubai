@@ -8,12 +8,10 @@ import (
 )
 
 func (h *Handler) SelectBlogByGroupID(c *gin.Context) {
-	// Query parametrelerini al
-	slug := c.Query("slug")
+	slugOrGroupID := c.Query("slug")
 	lang := c.Query("lang")
 
-	// Parametrelerin varlığını kontrol et
-	if slug == "" {
+	if slugOrGroupID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
 			"error":   "missing_parameter",
@@ -31,25 +29,24 @@ func (h *Handler) SelectBlogByGroupID(c *gin.Context) {
 		return
 	}
 
-	// Cache'den blogu kontrol et
-	blog, exists := h.BlogCache.GetBlogByGroupIDAndLang(slug, lang)
+	// Cache kontrolü (opsiyonel)
+	blog, exists := h.BlogCache.GetBlogByGroupIDAndLang(slugOrGroupID, lang)
 	if exists {
 		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"blog":    blog,
-			"cached":  true,
+			"success":  true,
+			"blog":     blog,
+			"cached":   true,
+			"priority": 1,
 		})
 		return
 	}
 
-	// Request nesnesini oluştur
 	request := types.BlogSelectByGroupIDInput{
-		GroupID:  slug,
-		Language: lang,
+		SlugOrGroupID: slugOrGroupID,
+		Language:      lang,
 	}
 
-	// Repository'den blog bilgilerini getir
-	blog, err := h.BlogRepository.SelectBlogByGroupID(request)
+	blog, priority, err := h.BlogRepository.SelectBlogByGroupID(request)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"success": false,
@@ -59,13 +56,13 @@ func (h *Handler) SelectBlogByGroupID(c *gin.Context) {
 		return
 	}
 
-	// Blog'u cache'e kaydet
-	h.BlogCache.SaveBlogByGroupIDAndLang(slug, lang, blog)
+	h.BlogCache.SaveBlogByGroupIDAndLang(slugOrGroupID, lang, blog)
 
-	// Başarılı yanıt döndür
 	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"blog":    blog,
-		"cached":  false,
+		"success":  true,
+		"blog":     blog,
+		"cached":   false,
+		"priority": priority,
+		"fallback": priority > 2,
 	})
 }

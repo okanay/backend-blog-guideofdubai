@@ -185,8 +185,8 @@ type TagInput struct {
 }
 
 type BlogSelectByGroupIDInput struct {
-	GroupID  string `json:"groupId" binding:"required"`
-	Language string `json:"language" binding:"required"`
+	SlugOrGroupID string `json:"slugOrGroupID" binding:"required"`
+	Language      string `json:"language" binding:"required"`
 }
 
 // ----- SELECT STRUCTURES -----
