@@ -80,21 +80,6 @@ func main() {
 	auth.GET("/logout", uh.Logout)
 	auth.GET("/get-me", uh.GetMe)
 
-	// Blog Routes - Public Access
-	blogPublic := router.Group("/blog")
-	{
-		blogPublic.GET("", bh.SelectBlogByGroupID)
-		blogPublic.GET("/cards", bh.SelectBlogCards)
-		blogPublic.GET("/:id", bh.SelectBlogByID)
-		blogPublic.GET("/tags", bh.SelectAllTags)
-		blogPublic.GET("/categories", bh.SelectAllCategories)
-		blogPublic.GET("/recent", bh.SelectRecentPosts)
-		blogPublic.GET("/featured", bh.SelectFeaturedPosts)
-		blogPublic.GET("/related", bh.SelectRelatedPosts)
-		blogPublic.GET("/sitemap", bh.SelectBlogSitemap)
-	}
-
-	// Blog Routes - Authenticated Access
 	blogAuth := auth.Group("/blog")
 	{
 		// Oluşturma işlemleri
@@ -106,8 +91,28 @@ func main() {
 		blogAuth.PATCH("", bh.UpdateBlogPost)
 		blogAuth.PATCH("/status", bh.UpdateBlogStatus)
 
+		// Featured işlemleri (YENİ)
+		blogAuth.POST("/featured", bh.AddToFeatured)
+		blogAuth.DELETE("/featured/:id", bh.RemoveFromFeatured)
+		blogAuth.PUT("/featured/ordering", bh.UpdateFeaturedOrdering)
+
 		// Silme işlemleri
 		blogAuth.DELETE("/:id", bh.DeleteBlogByID)
+	}
+
+	// Blog Routes - Public Access
+	blogPublic := router.Group("/blog")
+	{
+		blogPublic.GET("", bh.SelectBlogByGroupID)
+		blogPublic.GET("/cards", bh.SelectBlogCards)
+		blogPublic.GET("/:id", bh.SelectBlogByID)
+		blogPublic.GET("/tags", bh.SelectAllTags)
+		blogPublic.GET("/categories", bh.SelectAllCategories)
+		blogPublic.GET("/recent", bh.SelectRecentPosts)
+		blogPublic.GET("/featured", bh.GetFeaturedBlogs)               // Güncellendi
+		blogPublic.GET("/featured/:id/status", bh.CheckFeaturedStatus) // YENİ
+		blogPublic.GET("/related", bh.SelectRelatedPosts)
+		blogPublic.GET("/sitemap", bh.SelectBlogSitemap)
 	}
 
 	imageAuth := auth.Group("/images")

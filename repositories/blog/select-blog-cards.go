@@ -20,16 +20,17 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
             bp.group_id,
             bp.slug,
             bp.language,
-            bp.featured,
             bp.status,
             bp.created_at,
             bp.updated_at,
             bc.title,
             bc.description,
             bc.image,
-            bc.read_time
+            bc.read_time,
+            CASE WHEN bf.blog_id IS NOT NULL THEN true ELSE false END as featured
         FROM blog_posts bp
         LEFT JOIN blog_content bc ON bp.id = bc.id
+        LEFT JOIN blog_featured bf ON bp.id = bf.blog_id AND bf.language = bp.language
     `
 
 	var joins []string
@@ -70,7 +71,7 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 
 	// Featured filtresi
 	if options.Featured {
-		conditions = append(conditions, "bp.featured = true")
+		conditions = append(conditions, "bf.blog_id IS NOT NULL")
 	}
 
 	// Status filtresi
@@ -199,19 +200,20 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 		var card types.BlogPostCardView
 		var content types.ContentCardView
 
+		// Scan sırası SQL SELECT sırasıyla aynı olmalı
 		err := rows.Scan(
 			&card.ID,
 			&card.GroupID,
 			&card.Slug,
 			&card.Language,
-			&card.Featured,
-			&card.Status,
+			&card.Status, // 5. sütun status
 			&card.CreatedAt,
 			&card.UpdatedAt,
 			&content.Title,
 			&content.Description,
 			&content.Image,
 			&content.ReadTime,
+			&card.Featured, // 12. sütun featured (en son)
 		)
 
 		if err != nil {

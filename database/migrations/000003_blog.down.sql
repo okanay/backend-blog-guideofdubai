@@ -3,6 +3,8 @@ DROP TABLE IF EXISTS blog_categories;
 
 DROP TABLE IF EXISTS blog_tags;
 
+DROP TABLE IF EXISTS blog_featured;
+
 -- İndeksleri kaldır
 DROP INDEX IF EXISTS idx_blog_posts_slug_language;
 
@@ -26,6 +28,10 @@ DROP INDEX IF EXISTS idx_categories_name;
 
 DROP INDEX IF EXISTS idx_tags_name;
 
+DROP INDEX IF EXISTS idx_blog_featured_blog_id;
+
+DROP INDEX IF EXISTS idx_blog_featured_language_position;
+
 -- Alt tabloları kaldır
 DROP TABLE IF EXISTS blog_metadata;
 
@@ -41,5 +47,5 @@ DROP TABLE IF EXISTS tags;
 -- Ana tabloyu kaldır
 DROP TABLE IF EXISTS blog_posts;
 
--- En son enum tipini kaldır (hiçbir tablo tarafından referans edilmediğinden emin olduğumuzda)
+-- En son enum tipini kaldır
 DROP TYPE IF EXISTS blog_status;

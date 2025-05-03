@@ -81,11 +81,12 @@ func (r *Repository) CreateBlogSkeleton(tx *sql.Tx, input types.BlogPostCreateIn
 
 	var blogID uuid.UUID
 
+	// featured alanı kaldırıldı
 	query := `
 		INSERT INTO blog_posts (
-			user_id, group_id, slug, language, featured, status, created_at, updated_at
+			user_id, group_id, slug, language, status, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8
+			$1, $2, $3, $4, $5, $6, $7
 		) RETURNING id
 	`
 
@@ -96,7 +97,6 @@ func (r *Repository) CreateBlogSkeleton(tx *sql.Tx, input types.BlogPostCreateIn
 		input.GroupID,
 		input.Slug,
 		input.Language,
-		input.Featured,
 		input.Status,
 		now,
 		now,

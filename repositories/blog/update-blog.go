@@ -79,10 +79,11 @@ func (r *Repository) UpdateBlogPost(input types.BlogUpdateInput) (*types.BlogPos
 func (r *Repository) updateBlogPostDetails(tx *sql.Tx, blogID uuid.UUID, input types.BlogUpdateInput) error {
 	defer utils.TimeTrack(time.Now(), "Blog -> Update Blog Post Details")
 
+	// featured alanı kaldırıldı
 	query := `
 		UPDATE blog_posts
-		SET group_id = $1, slug = $2, language = $3, featured = $4, updated_at = $5, status = $6
-		WHERE id = $7
+		SET group_id = $1, slug = $2, language = $3, updated_at = $4, status = $5
+		WHERE id = $6
 	`
 
 	now := time.Now()
@@ -91,7 +92,6 @@ func (r *Repository) updateBlogPostDetails(tx *sql.Tx, blogID uuid.UUID, input t
 		input.GroupID,
 		input.Slug,
 		input.Language,
-		input.Featured,
 		now,
 		input.Status,
 		blogID,

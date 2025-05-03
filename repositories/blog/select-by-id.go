@@ -58,16 +58,18 @@ func (r *Repository) SelectBlogBody(blogID uuid.UUID) (*types.BlogPostView, erro
 
 	query := `
         SELECT
-            -- Blog Post primary data
+            -- Blog Post primary data (featured kaldırıldı)
             bp.id,
             bp.group_id,
             bp.slug,
             bp.language,
-            bp.featured,
             bp.status,
             bp.created_at,
             bp.updated_at,
             bp.published_at,
+
+            -- Featured durumu artık blog_featured tablosundan alınacak
+            CASE WHEN bf.blog_id IS NOT NULL THEN true ELSE false END as featured,
 
             -- Metadata
             bm.title as meta_title,
@@ -92,6 +94,7 @@ func (r *Repository) SelectBlogBody(blogID uuid.UUID) (*types.BlogPostView, erro
         LEFT JOIN blog_metadata bm ON bp.id = bm.id
         LEFT JOIN blog_content bc ON bp.id = bc.id
         LEFT JOIN blog_stats bs ON bp.id = bs.id
+        LEFT JOIN blog_featured bf ON bp.id = bf.blog_id AND bf.language = bp.language
         WHERE bp.id = $1`
 
 	var blog types.BlogPostView
@@ -106,11 +109,11 @@ func (r *Repository) SelectBlogBody(blogID uuid.UUID) (*types.BlogPostView, erro
 		&blog.GroupID,
 		&blog.Slug,
 		&blog.Language,
-		&blog.Featured,
 		&blog.Status,
 		&blog.CreatedAt,
 		&blog.UpdatedAt,
 		&publishedAt,
+		&blog.Featured, // Bu artık hesaplanıyor
 
 		&metadata.Title,
 		&metaDesc,
@@ -239,7 +242,7 @@ func (r *Repository) SelectBlogBase(blogID uuid.UUID) (types.BlogPost, error) {
 	var publishedAt sql.NullTime
 
 	query := `
-		SELECT id, group_id, slug, language, featured, status, created_at, updated_at, published_at
+		SELECT id, group_id, slug, language, status, created_at, updated_at, published_at
 		FROM blog_posts
 		WHERE id = $1
 	`
@@ -249,7 +252,6 @@ func (r *Repository) SelectBlogBase(blogID uuid.UUID) (types.BlogPost, error) {
 		&blog.GroupID,
 		&blog.Slug,
 		&blog.Language,
-		&blog.Featured,
 		&blog.Status,
 		&blog.CreatedAt,
 		&blog.UpdatedAt,

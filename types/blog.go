@@ -18,18 +18,27 @@ const (
 
 // ----- DATABASE TABLE STRUCTURES -----
 
-// BlogPost - main blog post structure
+// BlogPost - main blog post structure (featured alanı kaldırıldı)
 type BlogPost struct {
 	ID          uuid.UUID  `json:"id" db:"id"`
 	UserID      uuid.UUID  `json:"userId" db:"user_id"`
 	GroupID     string     `json:"groupId" db:"group_id"`
 	Slug        string     `json:"slug" db:"slug"`
 	Language    string     `json:"language" db:"language"`
-	Featured    bool       `json:"featured" db:"featured"`
 	Status      BlogStatus `json:"status" db:"status"`
 	CreatedAt   time.Time  `json:"createdAt" db:"created_at"`
 	UpdatedAt   time.Time  `json:"updatedAt" db:"updated_at"`
 	PublishedAt time.Time  `json:"publishedAt" db:"published_at"`
+}
+
+// BlogFeatured - featured blog ordering structure (YENİ)
+type BlogFeatured struct {
+	ID        uuid.UUID `json:"id" db:"id"`
+	BlogID    uuid.UUID `json:"blogId" db:"blog_id"`
+	Language  string    `json:"language" db:"language"`
+	Position  int       `json:"position" db:"position"`
+	CreatedAt time.Time `json:"createdAt" db:"created_at"`
+	UpdatedAt time.Time `json:"updatedAt" db:"updated_at"`
 }
 
 // BlogMetadata - blog metadata
@@ -69,7 +78,7 @@ type BlogPostView struct {
 	GroupID     string         `json:"groupId"`
 	Slug        string         `json:"slug"`
 	Language    string         `json:"language"`
-	Featured    bool           `json:"featured"`
+	Featured    bool           `json:"featured"` // Bu, blog_featured tablosundan hesaplanacak
 	Status      BlogStatus     `json:"status"`
 	Metadata    MetadataView   `json:"metadata"`
 	Content     ContentView    `json:"content"`
@@ -98,13 +107,13 @@ type ContentView struct {
 	JSON        string `json:"json"`
 }
 
-// BlogPostListView - blog post list view structure
+// BlogPostCardView - blog post list view structure
 type BlogPostCardView struct {
 	ID         string          `json:"id"`
 	GroupID    string          `json:"groupId"`
 	Slug       string          `json:"slug"`
 	Language   string          `json:"language"`
-	Featured   bool            `json:"featured"`
+	Featured   bool            `json:"featured"` // Blog_featured tablosundan hesaplanacak
 	Status     BlogStatus      `json:"status"`
 	Content    ContentCardView `json:"content"`
 	Categories []CategoryView  `json:"categories,omitempty"`
@@ -142,12 +151,11 @@ type TagView struct {
 
 // ----- INPUT STRUCTURES -----
 
-// BlogPostCreateInput - blog post creation input
+// BlogPostCreateInput - blog post creation input (featured alanı kaldırıldı)
 type BlogPostCreateInput struct {
 	GroupID    string        `json:"groupId" binding:"required"`
 	Slug       string        `json:"slug" binding:"required"`
 	Language   string        `json:"language" binding:"required"`
-	Featured   bool          `json:"featured"`
 	Status     BlogStatus    `json:"status" binding:"required"`
 	Metadata   MetadataInput `json:"metadata" binding:"required"`
 	Content    ContentInput  `json:"content" binding:"required"`
@@ -197,7 +205,7 @@ type BlogCardQueryOptions struct {
 	TagValue      string        `json:"tagValue"`
 	Title         string        `json:"title"`
 	Language      string        `json:"language"`
-	Featured      bool          `json:"featured"`
+	Featured      bool          `json:"featured"` // Blog_featured tablosundan kontrol edilecek
 	Status        BlogStatus    `json:"status"`
 	Limit         int           `json:"limit"`
 	Offset        int           `json:"offset"`
@@ -222,7 +230,6 @@ type BlogUpdateInput struct {
 	Slug       string        `json:"slug" binding:"required"`
 	Language   string        `json:"language" binding:"required"`
 	Status     BlogStatus    `json:"status"`
-	Featured   bool          `json:"featured"`
 	Metadata   MetadataInput `json:"metadata" binding:"required"`
 	Content    ContentInput  `json:"content" binding:"required"`
 	Categories []string      `json:"categories"`
@@ -232,4 +239,18 @@ type BlogUpdateInput struct {
 type BlogUpdateStatusInput struct {
 	ID     string     `json:"id" binding:"required"`
 	Status BlogStatus `json:"status" binding:"required"`
+}
+
+// ----- FEATURED BLOG STRUCTURES (YENİ) -----
+
+// FeaturedBlogInput - featured blog ekleme/çıkarma için input
+type FeaturedBlogInput struct {
+	BlogID   uuid.UUID `json:"blogId" binding:"required"`
+	Language string    `json:"language" binding:"required"`
+}
+
+// FeaturedBlogOrderingInput - featured blog sıralaması için input
+type FeaturedBlogOrderingInput struct {
+	Language string      `json:"language" binding:"required"`
+	BlogIDs  []uuid.UUID `json:"blogIds" binding:"required"`
 }

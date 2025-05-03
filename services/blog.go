@@ -142,6 +142,48 @@ func (s *BlogCacheService) GetBlogCards(queryOptions types.BlogCardQueryOptions)
 	return blogs, true
 }
 
+// GetFeaturedPostsByLanguage belirli bir dil için featured postları cache'den getirir
+func (s *BlogCacheService) GetFeaturedPostsByLanguage(language string) ([]types.BlogPostCardView, bool) {
+	cacheKey := fmt.Sprintf("featured_posts_%s", language)
+
+	cachedData, exists := s.cache.Get(cacheKey)
+	if !exists {
+		return nil, false
+	}
+
+	var blogs []types.BlogPostCardView
+	if err := json.Unmarshal(cachedData, &blogs); err != nil {
+		return nil, false
+	}
+
+	return blogs, true
+}
+
+// SaveFeaturedPostsByLanguage belirli bir dil için featured postları cache'e kaydeder
+func (s *BlogCacheService) SaveFeaturedPostsByLanguage(language string, blogs []types.BlogPostCardView) error {
+	cacheKey := fmt.Sprintf("featured_posts_%s", language)
+
+	jsonData, err := json.Marshal(blogs)
+	if err != nil {
+		return err
+	}
+
+	s.cache.Set(cacheKey, jsonData)
+	return nil
+}
+
+// InvalidateFeaturedPosts belirli bir dilin featured posts cache'ini temizler
+func (s *BlogCacheService) InvalidateFeaturedPosts(language string) {
+	cacheKey := fmt.Sprintf("featured_posts_%s", language)
+	s.cache.Delete(cacheKey)
+}
+
+// InvalidateAllFeaturedPosts tüm dillerdeki featured posts cache'ini temizler
+func (s *BlogCacheService) InvalidateAllFeaturedPosts() {
+	// Featured posts cache'lerini temizle
+	s.cache.ClearPrefix("featured_posts_")
+}
+
 // SaveBlogCards blog kartlarını sorgu parametrelerine göre cache'e kaydeder
 func (s *BlogCacheService) SaveBlogCards(queryOptions types.BlogCardQueryOptions, blogs []types.BlogPostCardView) error {
 	cacheKey := fmt.Sprintf("blog_cards:%v", queryOptions)
