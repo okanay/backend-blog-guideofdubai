@@ -5,6 +5,11 @@ DROP TABLE IF EXISTS blog_tags;
 
 DROP TABLE IF EXISTS blog_featured;
 
+-- Trigger ve fonksiyonu kaldır
+DROP TRIGGER IF EXISTS trigger_update_featured_blog_language ON blog_posts;
+
+DROP FUNCTION IF EXISTS sync_featured_blog_language;
+
 -- İndeksleri kaldır
 DROP INDEX IF EXISTS idx_blog_posts_slug_language;
 

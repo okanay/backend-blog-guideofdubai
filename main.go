@@ -94,7 +94,7 @@ func main() {
 		// Featured işlemleri (YENİ)
 		blogAuth.POST("/featured", bh.AddToFeatured)
 		blogAuth.DELETE("/featured/:id", bh.RemoveFromFeatured)
-		blogAuth.PUT("/featured/ordering", bh.UpdateFeaturedOrdering)
+		blogAuth.PATCH("/featured/ordering", bh.UpdateFeaturedOrdering)
 
 		// Silme işlemleri
 		blogAuth.DELETE("/:id", bh.DeleteBlogByID)

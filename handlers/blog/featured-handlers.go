@@ -29,7 +29,7 @@ func (h *Handler) AddToFeatured(c *gin.Context) {
 	}
 
 	// Cache'i temizle
-	h.BlogCache.InvalidateFeaturedPosts(request.Language)
+	h.BlogCache.InvalidateAllBlogs()
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -59,7 +59,7 @@ func (h *Handler) RemoveFromFeatured(c *gin.Context) {
 	}
 
 	// Tüm dillerdeki cache'i temizle
-	h.BlogCache.InvalidateAllFeaturedPosts()
+	h.BlogCache.InvalidateAllBlogs()
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -86,7 +86,7 @@ func (h *Handler) UpdateFeaturedOrdering(c *gin.Context) {
 	}
 
 	// İlgili dilin cache'ini temizle
-	h.BlogCache.InvalidateFeaturedPosts(request.Language)
+	h.BlogCache.InvalidateAllBlogs()
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,

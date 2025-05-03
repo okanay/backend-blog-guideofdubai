@@ -86,11 +86,70 @@ CREATE TABLE IF NOT EXISTS blog_featured (
     position INTEGER NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW () NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW () NOT NULL,
-    -- Her blog-dil kombinasyonu unique olmalı
-    UNIQUE (blog_id, language),
-    -- Her dilde pozisyonlar unique olmalı
-    UNIQUE (language, position)
+    CONSTRAINT blog_featured_language_position_key UNIQUE (language, position) DEFERRABLE INITIALLY IMMEDIATE
 );
+
+CREATE OR REPLACE FUNCTION sync_featured_blog_language()
+RETURNS TRIGGER AS $$
+DECLARE
+    current_position INTEGER;
+    target_position INTEGER;
+    max_pos INTEGER;
+    conflict_exists INTEGER;
+BEGIN
+    IF NEW.language IS DISTINCT FROM OLD.language THEN
+
+        SELECT bf.position
+        INTO current_position
+        FROM blog_featured bf
+        WHERE bf.blog_id = NEW.id;
+
+        IF current_position IS NULL THEN
+            RAISE NOTICE 'Blog post % is not featured, skipping position update.', NEW.id;
+            RETURN NEW;
+        END IF;
+
+        SELECT 1
+        INTO conflict_exists
+        FROM blog_featured bf
+        WHERE bf.language = NEW.language
+          AND bf.position = current_position
+          AND bf.blog_id != NEW.id;
+
+        IF conflict_exists IS NOT NULL THEN
+            RAISE NOTICE 'Position % is already taken in language %. Finding new position for blog post %.', current_position, NEW.language, NEW.id;
+            SELECT COALESCE(MAX(bf.position), 0)
+            INTO max_pos
+            FROM blog_featured bf
+            WHERE bf.language = NEW.language;
+
+            target_position := max_pos + 1;
+            RAISE NOTICE 'Assigning new position % to blog post % in language %.', target_position, NEW.id, NEW.language;
+
+        ELSE
+             RAISE NOTICE 'Position % is available in language %. Keeping original position for blog post %.', current_position, NEW.language, NEW.id;
+            target_position := current_position;
+        END IF;
+
+        UPDATE blog_featured
+        SET
+            language = NEW.language,
+            position = target_position,
+            updated_at = NOW()
+        WHERE
+            blog_id = NEW.id;
+
+    END IF;
+
+    RETURN NEW;
+
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_featured_blog_language
+AFTER UPDATE OF language ON blog_posts
+FOR EACH ROW
+EXECUTE FUNCTION sync_featured_blog_language();
 
 -- Yeni birleşik indeksler (slug ve group_id sorguları için)
 CREATE INDEX IF NOT EXISTS idx_blog_posts_slug_language ON blog_posts (slug, language);

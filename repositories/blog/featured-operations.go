@@ -3,6 +3,8 @@ package BlogRepository
 import (
 	"database/sql"
 	"fmt"
+	"log"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -55,14 +57,14 @@ func (r *Repository) AddToFeaturedList(blogID uuid.UUID, language string) error 
 	newPosition := 0
 	if maxPosition.Valid {
 		newPosition = int(maxPosition.Int64) + 100
+	} else {
+		newPosition = 100
 	}
 
 	// 4. Featured tablosuna ekle
 	insertQuery := `
 		INSERT INTO blog_featured (blog_id, language, position)
 		VALUES ($1, $2, $3)
-		ON CONFLICT (blog_id, language)
-		DO UPDATE SET position = EXCLUDED.position, updated_at = NOW()
 	`
 	_, err = tx.Exec(insertQuery, blogID, language, newPosition)
 	if err != nil {
@@ -89,44 +91,86 @@ func (r *Repository) RemoveFromFeaturedList(blogID uuid.UUID) error {
 }
 
 func (r *Repository) UpdateFeaturedOrdering(language string, orderedBlogIDs []uuid.UUID) error {
-	defer utils.TimeTrack(time.Now(), "Blog -> Update Featured Ordering")
+	defer utils.TimeTrack(time.Now(), "Blog -> Update Featured Ordering (Negative Temp)")
+
+	if len(orderedBlogIDs) == 0 {
+		// Güncellenecek bir şey yoksa boşuna işlem yapma.
+		// İsteğe bağlı: Bu dildeki tüm featured postları silmek isteyebilirsiniz.
+		// Veya sadece başarılı dönün.
+		return nil
+	}
 
 	tx, err := r.db.Begin()
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
+	// defer tx.Rollback() // Hata durumunda otomatik Rollback için helper kullanmak daha iyi
+	// Helper fonksiyon örneği:
 	defer func() {
-		if err != nil {
+		if p := recover(); p != nil {
 			tx.Rollback()
+			panic(p) // re-panic after Rollback
+		} else if err != nil {
+			// log.Printf("Rolling back transaction due to error: %v", err)
+			tx.Rollback() // err is non-nil; don't change it
+		} else {
+			err = tx.Commit() // Commit if no error occurred
+			// if err != nil {
+			//  log.Printf("Error during transaction commit: %v", err)
+			// }
 		}
 	}()
 
-	// Her blog için pozisyonu güncelle
-	updateQuery := `
-		UPDATE blog_featured
-		SET position = $1, updated_at = NOW()
-		WHERE blog_id = $2 AND language = $3
-	`
+	// --- Adım 1: Geçici Negatif Pozisyonlara Güncelle ---
+
+	// UPDATE FROM VALUES için VALUES listesini ve argümanları hazırla
+	valuesStatement := strings.Builder{}
+	args := []interface{}{language} // İlk argüman dil
+	paramIndex := 2                 // $1 dil için kullanıldı
 
 	for i, blogID := range orderedBlogIDs {
-		position := i * 100 // 0, 100, 200, 300...
-
-		result, err := tx.Exec(updateQuery, position, blogID, language)
-		if err != nil {
-			return fmt.Errorf("failed to update position for blog %s: %w", blogID, err)
+		tempPosition := -(i + 1) // -1, -2, -3...
+		if i > 0 {
+			valuesStatement.WriteString(", ")
 		}
-
-		rowsAffected, err := result.RowsAffected()
-		if err != nil {
-			return fmt.Errorf("failed to get rows affected: %w", err)
-		}
-
-		if rowsAffected == 0 {
-			return fmt.Errorf("blog %s not found in featured list for language %s", blogID, language)
-		}
+		// ($2::uuid, $3::integer)
+		valuesStatement.WriteString(fmt.Sprintf("($%d::uuid, $%d::integer)", paramIndex, paramIndex+1))
+		args = append(args, blogID, tempPosition)
+		paramIndex += 2
 	}
 
-	return tx.Commit()
+	updateToNegativeQuery := fmt.Sprintf(`
+			UPDATE blog_featured AS bf
+			SET position = v.temp_position, updated_at = NOW()
+			FROM (VALUES %s) AS v(blog_id_val, temp_position)
+			WHERE bf.blog_id = v.blog_id_val AND bf.language = $1
+		`, valuesStatement.String())
+
+	result, err := tx.Exec(updateToNegativeQuery, args...)
+	if err != nil {
+		return fmt.Errorf("failed to update to temporary negative positions: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	// Önemli: Eğer listedeki bazı ID'ler featured değilse burada rowsAffected < len(orderedBlogIDs) olabilir.
+	// Bu bir hata durumu mu, yoksa kabul edilebilir mi? Karar vermelisiniz.
+	// Şimdilik sadece devam ediyoruz. Eksik ID'ler sonraki adımda güncellenmeyecektir.
+	log.Printf("Rows affected in negative update: %d", rowsAffected)
+
+	// --- Adım 2: Nihai Pozitif Pozisyonlara Güncelle ---
+	// Negatif pozisyonları pozitif ve aralıklı hale getir (örn: -1 -> 100, -2 -> 200)
+	updateToPositiveQuery := `
+			UPDATE blog_featured
+			SET position = ABS(position) * 100, updated_at = NOW()
+			WHERE language = $1 AND position < 0
+		`
+	_, err = tx.Exec(updateToPositiveQuery, language)
+	if err != nil {
+		return fmt.Errorf("failed to update to final positive positions: %w", err)
+	}
+
+	// Hata yoksa defer içindeki Commit çalışacak
+	return nil
 }
 
 func (r *Repository) GetFeaturedBlogs(language string, limit int) ([]types.BlogPostCardView, error) {
