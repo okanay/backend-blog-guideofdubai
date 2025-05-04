@@ -98,6 +98,8 @@ func main() {
 		blogAuth.DELETE("/featured/:id", bh.RemoveFromFeatured)
 		blogAuth.PATCH("/featured/ordering", bh.UpdateFeaturedOrdering)
 
+		blogAuth.GET("/stats", bh.GetBlogStats)
+		blogAuth.GET("/stats/:id", bh.GetBlogStatByID)
 		// Silme işlemleri
 		blogAuth.DELETE("/:id", bh.DeleteBlogByID)
 	}

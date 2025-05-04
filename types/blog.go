@@ -128,6 +128,22 @@ type ContentCardView struct {
 	ReadTime    int    `json:"readTime"`
 }
 
+type BlogStatsDetailView struct {
+	BlogID       string     `json:"blogId"`
+	Title        string     `json:"title"`
+	Image        string     `json:"image"`
+	Language     string     `json:"language"`
+	GroupID      string     `json:"groupId"`
+	Slug         string     `json:"slug"`
+	Views        int        `json:"views"`
+	Likes        int        `json:"likes"`
+	Shares       int        `json:"shares"`
+	Comments     int        `json:"comments"`
+	LastViewedAt *time.Time `json:"lastViewedAt"`
+	CreatedAt    time.Time  `json:"createdAt"`
+	UpdatedAt    time.Time  `json:"updatedAt"`
+}
+
 // StatsView - statistics view structure
 type StatsView struct {
 	Views        int        `json:"views"`
