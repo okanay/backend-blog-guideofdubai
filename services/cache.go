@@ -15,8 +15,9 @@ type Cache struct {
 
 // cacheItem önbellekteki bir veriyi ve metadata'sını temsil eder
 type cacheItem struct {
-	value    []byte    // Veri byte olarak saklanır
-	cachedAt time.Time // Önbelleğe eklenme zamanı
+	value    []byte
+	cachedAt time.Time
+	ttl      time.Duration // Opsiyonel TTL
 }
 
 // NewCache yeni bir Cache instance'ı oluşturur
@@ -38,6 +39,17 @@ func (c *Cache) Set(key string, value []byte) {
 	}
 }
 
+func (c *Cache) SetWithTTL(key string, value []byte, ttl time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.data[key] = cacheItem{
+		value:    value,
+		cachedAt: time.Now(),
+		ttl:      ttl, // Bu alan cacheItem struct'ına eklenmeli
+	}
+}
+
 // Get bir anahtara karşılık gelen değeri önbellekten döndürür
 func (c *Cache) Get(key string) ([]byte, bool) {
 	c.mu.RLock()
@@ -48,7 +60,14 @@ func (c *Cache) Get(key string) ([]byte, bool) {
 		return nil, false
 	}
 
-	// TTL kontrolü
+	// Özel TTL kontrolü
+	if item.ttl > 0 && time.Since(item.cachedAt) > item.ttl {
+		// TTL dolmuş, veriyi sil ve false dön
+		delete(c.data, key)
+		return nil, false
+	}
+
+	// Genel TTL kontrolü
 	if time.Since(item.cachedAt) > c.ttl {
 		return nil, false
 	}

@@ -13,6 +13,7 @@ import (
 	BlogHandler "github.com/okanay/backend-blog-guideofdubai/handlers/blog"
 	ImageHandler "github.com/okanay/backend-blog-guideofdubai/handlers/image"
 	UserHandler "github.com/okanay/backend-blog-guideofdubai/handlers/user"
+	"github.com/okanay/backend-blog-guideofdubai/middlewares"
 	mw "github.com/okanay/backend-blog-guideofdubai/middlewares"
 	BlogRepository "github.com/okanay/backend-blog-guideofdubai/repositories/blog"
 	ImageRepository "github.com/okanay/backend-blog-guideofdubai/repositories/image"
@@ -53,6 +54,7 @@ func main() {
 	)
 
 	blogCache := cache.NewCache(24 * time.Hour)
+	blogStats := middlewares.NewBlogStatsMiddleware(br, blogCache, 1*time.Minute)
 
 	// Handler Initialization
 	mh := handlers.NewHandler()
@@ -103,7 +105,7 @@ func main() {
 	// Blog Routes - Public Access
 	blogPublic := router.Group("/blog")
 	{
-		blogPublic.GET("", bh.SelectBlogByGroupID)
+		blogPublic.GET("", blogStats.TrackView(), bh.SelectBlogByGroupID)
 		blogPublic.GET("/cards", bh.SelectBlogCards)
 		blogPublic.GET("/:id", bh.SelectBlogByID)
 		blogPublic.GET("/tags", bh.SelectAllTags)
