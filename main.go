@@ -115,6 +115,7 @@ func main() {
 		blogPublic.GET("/tags", bh.SelectAllTags)
 		blogPublic.GET("/categories", bh.SelectAllCategories)
 		blogPublic.GET("/recent", bh.SelectRecentPosts)
+		blogPublic.GET("/featured", bh.SelectFeaturedPosts)
 		blogPublic.GET("/related", bh.SelectRelatedPosts)
 		blogPublic.GET("/sitemap", bh.SelectBlogSitemap)
 	}
