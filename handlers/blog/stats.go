@@ -2,7 +2,6 @@
 package BlogHandler
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -102,7 +101,6 @@ func (h *Handler) TrackBlogView(c *gin.Context) {
 
 	// Blog ID'yi middleware için set et
 	c.Set("blog_id", blogID)
-	fmt.Println(c.ClientIP())
 
 	// İşlem başarılı cevabını döndür
 	c.JSON(http.StatusOK, gin.H{

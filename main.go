@@ -119,7 +119,7 @@ func main() {
 		blogPublic.GET("/related", bh.SelectRelatedPosts)
 		blogPublic.GET("/sitemap", bh.SelectBlogSitemap)
 
-		blogPublic.GET("/blog/view", blogStats.TrackView(), bh.TrackBlogView)
+		blogPublic.GET("/view", blogStats.TrackView(), bh.TrackBlogView)
 	}
 
 	imageAuth := auth.Group("/images")
