@@ -53,7 +53,9 @@ func main() {
 		os.Getenv("R2_ENDPOINT"),
 	)
 
-	blogCache := cache.NewCache(24 * time.Hour)
+	blogCache := cache.NewCache(30 * time.Minute)
+	defer blogCache.Stop() // Graceful shutdown için ekleme
+
 	blogStats := middlewares.NewBlogStatsMiddleware(br, blogCache, 1*time.Minute)
 
 	// Handler Initialization
@@ -113,8 +115,6 @@ func main() {
 		blogPublic.GET("/tags", bh.SelectAllTags)
 		blogPublic.GET("/categories", bh.SelectAllCategories)
 		blogPublic.GET("/recent", bh.SelectRecentPosts)
-		blogPublic.GET("/featured", bh.GetFeaturedBlogs)               // Güncellendi
-		blogPublic.GET("/featured/:id/status", bh.CheckFeaturedStatus) // YENİ
 		blogPublic.GET("/related", bh.SelectRelatedPosts)
 		blogPublic.GET("/sitemap", bh.SelectBlogSitemap)
 	}
@@ -125,6 +125,30 @@ func main() {
 		imageAuth.POST("/confirm", ih.ConfirmUpload)
 		imageAuth.GET("", ih.GetUserImages)
 		imageAuth.DELETE("/:id", ih.DeleteImage)
+	}
+
+	adminAuth := auth.Group("/admin")
+	adminAuth.Use(mw.RequireRole("Admin"))
+	{
+		adminAuth.GET("/cache", func(c *gin.Context) {
+			stats := blogCache.GetStats()
+			c.JSON(200, gin.H{
+				"success": true,
+				"stats":   stats,
+			})
+		})
+
+		// Cache temizleme endpoint'i
+		adminAuth.DELETE("/cache", func(c *gin.Context) {
+			// Tüm cache'i temizle
+			blogCache.Clear()
+
+			c.JSON(200, gin.H{
+				"success": true,
+				"message": "Cache başarıyla temizlendi",
+			})
+		})
+
 	}
 
 	// Start Server

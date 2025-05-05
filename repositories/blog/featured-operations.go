@@ -251,22 +251,3 @@ func (r *Repository) GetFeaturedBlogs(language string, limit int) ([]types.BlogP
 
 	return blogs, nil
 }
-
-func (r *Repository) IsBlogFeatured(blogID uuid.UUID, language string) (bool, error) {
-	defer utils.TimeTrack(time.Now(), "Blog -> Is Blog Featured")
-
-	var exists bool
-	query := `
-		SELECT EXISTS(
-			SELECT 1 FROM blog_featured
-			WHERE blog_id = $1 AND language = $2
-		)
-	`
-
-	err := r.db.QueryRow(query, blogID, language).Scan(&exists)
-	if err != nil {
-		return false, fmt.Errorf("failed to check featured status: %w", err)
-	}
-
-	return exists, nil
-}

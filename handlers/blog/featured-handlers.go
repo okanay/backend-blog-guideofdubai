@@ -139,39 +139,3 @@ func (h *Handler) GetFeaturedBlogs(c *gin.Context) {
 		"cached":  false,
 	})
 }
-
-// CheckFeaturedStatus bir blogun featured durumunu kontrol eder
-func (h *Handler) CheckFeaturedStatus(c *gin.Context) {
-	blogIDString := c.Param("id")
-	blogID, err := uuid.Parse(blogIDString)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   "Geçersiz blog ID",
-		})
-		return
-	}
-
-	language := c.Query("language")
-	if language == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   "Dil parametresi gerekli",
-		})
-		return
-	}
-
-	isFeatured, err := h.BlogRepository.IsBlogFeatured(blogID, language)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success":    true,
-		"isFeatured": isFeatured,
-	})
-}
