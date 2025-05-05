@@ -27,15 +27,12 @@ func NewBlogStatsMiddleware(blogRepo *BlogRepository.Repository, cache *cache.Ca
 
 func (m *BlogStatsMiddleware) TrackView() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Handler'ı önce çalıştır
 		c.Next()
 
-		// Sadece başarılı isteklerde devam et
 		if c.Writer.Status() != 200 {
 			return
 		}
 
-		// Blog ID'yi kontrol et
 		blogIDInterface, exists := c.Get("blog_id")
 		if !exists {
 			return
@@ -46,19 +43,20 @@ func (m *BlogStatsMiddleware) TrackView() gin.HandlerFunc {
 			return
 		}
 
-		// Cache key oluştur
-		cacheKey := fmt.Sprintf("blog_view:%s", blogID.String())
-		// Son 15 dakika içinde görüntülendi mi?
+		ip := c.ClientIP()
+		if ip == "" {
+			ip = "ip-not-found"
+		}
+
+		cacheKey := fmt.Sprintf("blog_view:%s:%s", blogID.String(), ip)
 		if _, exists := m.cache.Get(cacheKey); exists {
 			return
 		}
 
-		// Görüntülenme sayısını artır (asenkron)
 		go func(id uuid.UUID) {
 			m.blogRepo.IncrementViewCount(id)
 		}(blogID)
 
-		// Cache'e kaydet (15 dakika)
 		m.cache.SetWithTTL(cacheKey, []byte("1"), m.duration)
 	}
 }
