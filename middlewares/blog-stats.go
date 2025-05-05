@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	BlogRepository "github.com/okanay/backend-blog-guideofdubai/repositories/blog"
 	cache "github.com/okanay/backend-blog-guideofdubai/services"
-	"github.com/okanay/backend-blog-guideofdubai/utils"
 )
 
 type BlogStatsMiddleware struct {
@@ -44,7 +43,7 @@ func (m *BlogStatsMiddleware) TrackView() gin.HandlerFunc {
 			return
 		}
 
-		ip := utils.GetTrueClientIP(c)
+		ip := c.ClientIP()
 
 		cacheKey := fmt.Sprintf("track_view::blog-id:%s:user-ip:%s", blogID.String(), ip)
 		if _, exists := m.cache.Get(cacheKey); exists {
