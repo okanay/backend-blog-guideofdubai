@@ -2,11 +2,13 @@
 package BlogHandler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/okanay/backend-blog-guideofdubai/configs"
 )
 
 // GetBlogStats tüm blog istatistiklerini getirir
@@ -99,11 +101,37 @@ func (h *Handler) TrackBlogView(c *gin.Context) {
 		return
 	}
 
-	// Blog ID'yi middleware için set et
-	c.Set("blog_id", blogID)
+	// Gerçek IP adresini al
+	ip := c.ClientIP()
+
+	// Cache anahtarı oluştur
+	cacheKey := fmt.Sprintf("track_view::blog-id:%s:user-ip:%s", blogID.String(), ip)
+
+	// Cache içinde olup olmadığını kontrol et
+	if _, exists := h.Cache.Get(cacheKey); exists {
+		// Aynı IP adresinden kısa süre içinde tekrar görüntüleme yapılmış
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"tracked": false,
+			"reason":  "recently_viewed",
+		})
+		return
+	}
+
+	// Görüntüleme sayısını artır
+	go func(id uuid.UUID) {
+		if err := h.BlogRepository.IncrementViewCount(id); err != nil {
+			// Hata loglama
+			fmt.Printf("Görüntüleme sayımı artırılırken hata: %v\n", err)
+		}
+	}(blogID)
+
+	// IP adresini önbelleğe al (1 dakika TTL)
+	h.Cache.SetWithTTL(cacheKey, []byte(cacheKey), configs.VIEW_CACHE_EXPIRATION)
 
 	// İşlem başarılı cevabını döndür
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
+		"tracked": true,
 	})
 }
