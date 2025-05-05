@@ -44,12 +44,10 @@ func (m *BlogStatsMiddleware) TrackView() gin.HandlerFunc {
 		}
 
 		ip := c.ClientIP()
-		if ip == "" {
-			ip = "ip-not-found"
-		}
 
-		cacheKey := fmt.Sprintf("blog_view:%s:%s", blogID.String(), ip)
+		cacheKey := fmt.Sprintf("track_view::blog-id:%s:user-ip:%s", blogID.String(), ip)
 		if _, exists := m.cache.Get(cacheKey); exists {
+			fmt.Println("Cache hit", ip)
 			return
 		}
 
@@ -57,6 +55,6 @@ func (m *BlogStatsMiddleware) TrackView() gin.HandlerFunc {
 			m.blogRepo.IncrementViewCount(id)
 		}(blogID)
 
-		m.cache.SetWithTTL(cacheKey, []byte("1"), m.duration)
+		m.cache.SetWithTTL(cacheKey, []byte(cacheKey), m.duration)
 	}
 }

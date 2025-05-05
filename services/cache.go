@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+// ---- Veri Yapıları ----
+
 // Cache genel amaçlı bir önbellek yapısı
 type Cache struct {
 	mu              sync.RWMutex
@@ -25,7 +27,9 @@ type cacheItem struct {
 	ttl      time.Duration // Opsiyonel TTL
 }
 
-// NewCache güncellenmiş hali
+// ---- Temel İşlemler ----
+
+// NewCache yeni bir önbellek oluşturur
 func NewCache(ttl time.Duration) *Cache {
 	cache := &Cache{
 		data:            make(map[string]cacheItem),
@@ -41,7 +45,87 @@ func NewCache(ttl time.Duration) *Cache {
 	return cache
 }
 
-// startCleanupRoutine güncellenmiş hali
+// Set verilen anahtarla bir değeri önbelleğe kaydeder
+func (c *Cache) Set(key string, value []byte) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.data[key] = cacheItem{
+		value:    value,
+		cachedAt: time.Now(),
+	}
+}
+
+// SetWithTTL özel TTL ile bir değeri önbelleğe kaydeder
+func (c *Cache) SetWithTTL(key string, value []byte, ttl time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.data[key] = cacheItem{
+		value:    value,
+		cachedAt: time.Now(),
+		ttl:      ttl,
+	}
+}
+
+// Get bir anahtara karşılık gelen değeri önbellekten döndürür
+func (c *Cache) Get(key string) ([]byte, bool) {
+	c.mu.RLock()
+	item, exists := c.data[key]
+	c.mu.RUnlock()
+
+	if !exists {
+		return nil, false
+	}
+
+	// Özel TTL kontrolü
+	if item.ttl > 0 && time.Since(item.cachedAt) > item.ttl {
+		// TTL dolmuş, veriyi sil ve false dön
+		c.mu.Lock()
+		delete(c.data, key)
+		c.mu.Unlock()
+		return nil, false
+	}
+
+	// Genel TTL kontrolü
+	if time.Since(item.cachedAt) > c.ttl {
+		return nil, false
+	}
+
+	return item.value, true
+}
+
+// Delete bir anahtarı önbellekten siler
+func (c *Cache) Delete(key string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	delete(c.data, key)
+}
+
+// Clear tüm önbelleği temizler
+func (c *Cache) Clear() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.data = make(map[string]cacheItem)
+}
+
+// ClearPrefix belirli bir önekle başlayan tüm anahtarları temizler
+func (c *Cache) ClearPrefix(prefix string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for key := range c.data {
+		if len(key) >= len(prefix) && key[:len(prefix)] == prefix {
+			delete(c.data, key)
+		}
+	}
+}
+
+// ---- Temizleme İşlemleri ----
+
+// startCleanupRoutine temizleme rutinini başlatır
 func (c *Cache) startCleanupRoutine() {
 	ticker := time.NewTicker(c.cleanupInterval)
 	defer ticker.Stop()
@@ -59,7 +143,34 @@ func (c *Cache) startCleanupRoutine() {
 	}
 }
 
-// GetStats güncellenmiş ve geliştirilmiş hali
+// cleanupExpiredItems süresi dolmuş cache item'larını temizler
+func (c *Cache) cleanupExpiredItems() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	now := time.Now()
+	for key, item := range c.data {
+		// Özel TTL kontrolü
+		if item.ttl > 0 && now.Sub(item.cachedAt) > item.ttl {
+			delete(c.data, key)
+			continue
+		}
+
+		// Genel TTL kontrolü
+		if now.Sub(item.cachedAt) > c.ttl {
+			delete(c.data, key)
+		}
+	}
+}
+
+// Stop cleanup goroutine'ini durdurur (graceful shutdown için)
+func (c *Cache) Stop() {
+	close(c.stopCleanup)
+}
+
+// ---- İstatistik ve Bilgi Fonksiyonları ----
+
+// GetStats önbellek istatistiklerini döndürür
 func (c *Cache) GetStats() map[string]any {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -196,6 +307,8 @@ func (c *Cache) GetStats() map[string]any {
 	}
 }
 
+// ---- Yardımcı Fonksiyonlar ----
+
 // formatDuration süreyi okunaklı formata çevirir
 func formatDuration(d time.Duration) string {
 	if d < 0 {
@@ -276,104 +389,4 @@ func max(a, b int) int {
 		return a
 	}
 	return b
-}
-
-// cleanupExpiredItems süresi dolmuş cache item'larını temizler
-func (c *Cache) cleanupExpiredItems() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	now := time.Now()
-	for key, item := range c.data {
-		// Özel TTL kontrolü
-		if item.ttl > 0 && now.Sub(item.cachedAt) > item.ttl {
-			delete(c.data, key)
-			continue
-		}
-
-		// Genel TTL kontrolü
-		if now.Sub(item.cachedAt) > c.ttl {
-			delete(c.data, key)
-		}
-	}
-}
-
-// Stop cleanup goroutine'ini durdurur (graceful shutdown için)
-func (c *Cache) Stop() {
-	close(c.stopCleanup)
-}
-
-// Set verilen anahtarla bir değeri önbelleğe kaydeder
-func (c *Cache) Set(key string, value []byte) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	c.data[key] = cacheItem{
-		value:    value,
-		cachedAt: time.Now(),
-	}
-}
-
-func (c *Cache) SetWithTTL(key string, value []byte, ttl time.Duration) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	c.data[key] = cacheItem{
-		value:    value,
-		cachedAt: time.Now(),
-		ttl:      ttl, // Bu alan cacheItem struct'ına eklenmeli
-	}
-}
-
-// Get bir anahtara karşılık gelen değeri önbellekten döndürür
-func (c *Cache) Get(key string) ([]byte, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	item, exists := c.data[key]
-	if !exists {
-		return nil, false
-	}
-
-	// Özel TTL kontrolü
-	if item.ttl > 0 && time.Since(item.cachedAt) > item.ttl {
-		// TTL dolmuş, veriyi sil ve false dön
-		delete(c.data, key)
-		return nil, false
-	}
-
-	// Genel TTL kontrolü
-	if time.Since(item.cachedAt) > c.ttl {
-		return nil, false
-	}
-
-	return item.value, true
-}
-
-// Delete bir anahtarı önbellekten siler
-func (c *Cache) Delete(key string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	delete(c.data, key)
-}
-
-// Clear tüm önbelleği temizler
-func (c *Cache) Clear() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	c.data = make(map[string]cacheItem)
-}
-
-// ClearPrefix belirli bir önekle başlayan tüm anahtarları temizler
-func (c *Cache) ClearPrefix(prefix string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	for key := range c.data {
-		if len(key) >= len(prefix) && key[:len(prefix)] == prefix {
-			delete(c.data, key)
-		}
-	}
 }
