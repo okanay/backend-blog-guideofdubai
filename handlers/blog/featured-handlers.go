@@ -2,7 +2,6 @@ package BlogHandler
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -99,12 +98,6 @@ func (h *Handler) GetFeaturedBlogs(c *gin.Context) {
 	language := c.Query("language")
 	if language == "" {
 		language = "en" // Varsayılan dil
-	}
-
-	limitStr := c.DefaultQuery("limit", "6")
-	limit := 6
-	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
-		limit = l
 	}
 
 	// Cache'den kontrol et

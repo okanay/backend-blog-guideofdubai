@@ -173,7 +173,7 @@ func (r *Repository) UpdateFeaturedOrdering(language string, orderedBlogIDs []uu
 	return nil
 }
 
-func (r *Repository) GetFeaturedBlogs(language string, limit int) ([]types.BlogPostCardView, error) {
+func (r *Repository) GetFeaturedBlogs(language string) ([]types.BlogPostCardView, error) {
 	defer utils.TimeTrack(time.Now(), "Blog -> Get Featured Blogs")
 
 	query := `
@@ -197,10 +197,9 @@ func (r *Repository) GetFeaturedBlogs(language string, limit int) ([]types.BlogP
 		WHERE bf.language = $1
 		  AND bp.status = 'published'
 		ORDER BY bf.position ASC
-		LIMIT $2
 	`
 
-	rows, err := r.db.Query(query, language, limit)
+	rows, err := r.db.Query(query, language)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get featured blogs: %w", err)
 	}
