@@ -44,6 +44,15 @@ func (m *BlogStatsMiddleware) TrackView() gin.HandlerFunc {
 		}
 
 		ip := c.ClientIP()
+		realIP := c.Request.Header.Get("X-Real-IP")
+		forwardedFor := c.Request.Header.Get("X-Forwarded-For")
+		remoteAddr := c.Request.RemoteAddr
+
+		fmt.Printf("Debug IP Bilgileri:\n")
+		fmt.Printf("  ClientIP(): %s\n", ip)
+		fmt.Printf("  X-Real-IP: %s\n", realIP)
+		fmt.Printf("  X-Forwarded-For: %s\n", forwardedFor)
+		fmt.Printf("  RemoteAddr: %s\n", remoteAddr)
 
 		cacheKey := fmt.Sprintf("track_view::blog-id:%s:user-ip:%s", blogID.String(), ip)
 		if _, exists := m.cache.Get(cacheKey); exists {
