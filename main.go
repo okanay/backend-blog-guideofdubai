@@ -109,7 +109,7 @@ func main() {
 	// Blog Routes - Public Access
 	blogPublic := router.Group("/blog")
 	{
-		blogPublic.GET("", blogStats.TrackView(), bh.SelectBlogByGroupID)
+		blogPublic.GET("", blogStats.TrackView(), bh.SelectBlogBySlugID)
 		blogPublic.GET("/cards", bh.SelectBlogCards)
 		blogPublic.GET("/:id", bh.SelectBlogByID)
 		blogPublic.GET("/tags", bh.SelectAllTags)
@@ -118,6 +118,8 @@ func main() {
 		blogPublic.GET("/featured", bh.GetFeaturedBlogs)
 		blogPublic.GET("/related", bh.SelectRelatedPosts)
 		blogPublic.GET("/sitemap", bh.SelectBlogSitemap)
+
+		blogPublic.GET("/blog/view", blogStats.TrackView(), bh.TrackBlogView)
 	}
 
 	imageAuth := auth.Group("/images")

@@ -75,3 +75,35 @@ func (h *Handler) GetBlogStatByID(c *gin.Context) {
 		"stat":    stat,
 	})
 }
+
+func (h *Handler) TrackBlogView(c *gin.Context) {
+	// Blog ID'yi URL parametresinden al
+	blogIDStr := c.Query("id")
+	if blogIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "missing_parameter",
+			"message": "id parametresi gereklidir.",
+		})
+		return
+	}
+
+	// Blog ID'yi UUID'ye çevir
+	blogID, err := uuid.Parse(blogIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "invalid_parameter",
+			"message": "Geçersiz blog ID formatı.",
+		})
+		return
+	}
+
+	// Blog ID'yi middleware için set et
+	c.Set("blog_id", blogID)
+
+	// İşlem başarılı cevabını döndür
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+	})
+}

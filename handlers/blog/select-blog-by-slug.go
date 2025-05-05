@@ -9,7 +9,7 @@ import (
 	"github.com/okanay/backend-blog-guideofdubai/types"
 )
 
-func (h *Handler) SelectBlogByGroupID(c *gin.Context) {
+func (h *Handler) SelectBlogBySlugID(c *gin.Context) {
 	slugOrGroupID := c.Query("slug")
 	lang := c.Query("lang")
 
@@ -42,7 +42,6 @@ func (h *Handler) SelectBlogByGroupID(c *gin.Context) {
 			SlugOrGroupID: slugOrGroupID,
 			Language:      lang,
 		}
-
 		var err error
 		post, alternatives, err = h.BlogRepository.SelectBlogByGroupID(request)
 		if err != nil {
@@ -53,17 +52,9 @@ func (h *Handler) SelectBlogByGroupID(c *gin.Context) {
 			})
 			return
 		}
-
 		// Cache'e kaydet
 		h.BlogCache.SaveBlogAndAlternativesBySlug(cacheKey, post, alternatives)
 		cached = false
-	}
-
-	// Blog ID'yi middleware için set et
-	if post != nil && post.ID != "" {
-		if id, err := uuid.Parse(post.ID); err == nil {
-			c.Set("blog_id", id)
-		}
 	}
 
 	// Alternatifleri sadeleştir
@@ -74,6 +65,13 @@ func (h *Handler) SelectBlogByGroupID(c *gin.Context) {
 			"slug":     alt.Slug,
 			"title":    alt.Metadata.Title,
 		})
+	}
+
+	// Blog ID'yi middleware için set et
+	if post != nil && post.ID != "" {
+		if id, err := uuid.Parse(post.ID); err == nil {
+			c.Set("blog_id", id)
+		}
 	}
 
 	// Response'u gönder
