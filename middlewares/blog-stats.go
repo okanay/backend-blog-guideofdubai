@@ -3,13 +3,13 @@ package middlewares
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	BlogRepository "github.com/okanay/backend-blog-guideofdubai/repositories/blog"
 	cache "github.com/okanay/backend-blog-guideofdubai/services"
+	"github.com/okanay/backend-blog-guideofdubai/utils"
 )
 
 type BlogStatsMiddleware struct {
@@ -44,23 +44,7 @@ func (m *BlogStatsMiddleware) TrackView() gin.HandlerFunc {
 			return
 		}
 
-		ip := c.Request.Header.Get("X-Real-IP")
-		if ip == "" {
-			// Alternatif olarak X-Forwarded-For başlığının son elemanını alın
-			forwardedFor := c.Request.Header.Get("X-Forwarded-For")
-			if forwardedFor != "" {
-				ips := strings.Split(forwardedFor, ",")
-				if len(ips) > 0 {
-					// Zincirdeki son IP (genellikle gerçek istemci IP'si)
-					ip = strings.TrimSpace(ips[len(ips)-1])
-				}
-			}
-
-			// Hala IP bulunamadıysa, ClientIP() metodunu kullanın
-			if ip == "" {
-				ip = c.ClientIP()
-			}
-		}
+		ip := utils.GetTrueClientIP(c)
 
 		cacheKey := fmt.Sprintf("track_view::blog-id:%s:user-ip:%s", blogID.String(), ip)
 		if _, exists := m.cache.Get(cacheKey); exists {
