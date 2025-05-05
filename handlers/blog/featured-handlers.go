@@ -113,7 +113,7 @@ func (h *Handler) GetFeaturedBlogs(c *gin.Context) {
 	}
 
 	// Veritabanından getir
-	blogs, err := h.BlogRepository.GetFeaturedBlogs(language, limit)
+	blogs, err := h.BlogRepository.GetFeaturedBlogs(language)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
