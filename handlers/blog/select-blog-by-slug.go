@@ -50,7 +50,7 @@ func (h *Handler) getBlogBySlugOrGroupID(slugOrGroupID, lang string) (*types.Blo
 		Language:      lang,
 	}
 
-	post, alternatives, err := h.BlogRepository.SelectBlogByGroupID(request)
+	post, alternatives, err := h.BlogRepository.SelectBlogBySlugID(request)
 	if err != nil {
 		return nil, nil, false, err
 	}

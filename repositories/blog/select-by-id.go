@@ -2,8 +2,8 @@ package BlogRepository
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,45 +12,149 @@ import (
 )
 
 func (r *Repository) SelectBlogByID(blogID uuid.UUID) (*types.BlogPostView, error) {
-	blogView, err := r.SelectBlogBody(blogID)
+	defer utils.TimeTrack(time.Now(), "Blog -> Select Blog By ID")
+
+	query := `
+        SELECT
+            -- Blog Post primary data
+            bp.id,
+            bp.group_id,
+            bp.slug,
+            bp.language,
+            bp.status,
+            bp.created_at,
+            bp.updated_at,
+            bp.published_at,
+
+            -- Featured status
+            CASE WHEN bf.blog_id IS NOT NULL THEN true ELSE false END as featured,
+
+            -- Metadata
+            bm.title as meta_title,
+            bm.description as meta_description,
+            bm.image as meta_image,
+
+            -- Content
+            bc.title as content_title,
+            bc.description as content_description,
+            bc.image as content_image,
+            bc.read_time,
+            bc.html,
+            bc.json,
+
+            -- Statistics
+            bs.views,
+            bs.likes,
+            bs.shares,
+            bs.comments,
+            bs.last_viewed_at,
+
+            -- Categories as JSON array
+            (
+                SELECT COALESCE(json_agg(json_build_object('name', c.name, 'value', c.value)), '[]'::json)
+                FROM blog_categories bc2
+                JOIN categories c ON bc2.category_name = c.name
+                WHERE bc2.blog_id = bp.id
+            ) AS categories,
+
+            -- Tags as JSON array
+            (
+                SELECT COALESCE(json_agg(json_build_object('name', t.name, 'value', t.value)), '[]'::json)
+                FROM blog_tags bt
+                JOIN tags t ON bt.tag_name = t.name
+                WHERE bt.blog_id = bp.id
+            ) AS tags
+
+        FROM blog_posts bp
+        LEFT JOIN blog_metadata bm ON bp.id = bm.id
+        LEFT JOIN blog_content bc ON bp.id = bc.id
+        LEFT JOIN blog_stats bs ON bp.id = bs.id
+        LEFT JOIN blog_featured bf ON bp.id = bf.blog_id AND bf.language = bp.language
+        WHERE bp.id = $1`
+
+	var blog types.BlogPostView
+	var metadata types.MetadataView
+	var content types.ContentView
+	var stats types.StatsView
+	var publishedAt, lastViewedAt sql.NullTime
+	var metaDesc, metaImage, contentDesc sql.NullString
+	var categoriesJSON, tagsJSON []byte
+
+	err := r.db.QueryRow(query, blogID).Scan(
+		&blog.ID,
+		&blog.GroupID,
+		&blog.Slug,
+		&blog.Language,
+		&blog.Status,
+		&blog.CreatedAt,
+		&blog.UpdatedAt,
+		&publishedAt,
+		&blog.Featured,
+
+		&metadata.Title,
+		&metaDesc,
+		&metaImage,
+
+		&content.Title,
+		&contentDesc,
+		&content.Image,
+		&content.ReadTime,
+		&content.HTML,
+		&content.JSON,
+
+		&stats.Views,
+		&stats.Likes,
+		&stats.Shares,
+		&stats.Comments,
+		&lastViewedAt,
+
+		&categoriesJSON,
+		&tagsJSON,
+	)
+
 	if err != nil {
-		return nil, err
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("blog post not found: %w", err)
+		}
+		return nil, fmt.Errorf("error retrieving blog data: %w", err)
 	}
 
-	categoriesCh := make(chan []types.CategoryView, 1)
-	tagsCh := make(chan []types.TagView, 1)
-	var wg sync.WaitGroup
-	wg.Add(2)
+	// Nullable alanları işle
+	if publishedAt.Valid {
+		blog.PublishedAt = publishedAt.Time
+	}
+	if metaDesc.Valid {
+		metadata.Description = metaDesc.String
+	}
+	if metaImage.Valid {
+		metadata.Image = metaImage.String
+	}
+	if contentDesc.Valid {
+		content.Description = contentDesc.String
+	}
+	if lastViewedAt.Valid {
+		stats.LastViewedAt = &lastViewedAt.Time
+	}
 
-	go func() {
-		defer wg.Done()
-		categories, err := r.SelectBlogCategories(blogID)
-		if err != nil {
-			categoriesCh <- make([]types.CategoryView, 0)
-			return
-		}
-		categoriesCh <- categories
-	}()
+	// JSON kategorileri ve etiketleri çöz
+	var categories []types.CategoryView
+	var tags []types.TagView
 
-	go func() {
-		defer wg.Done()
-		tags, err := r.SelectBlogTags(blogID)
-		if err != nil {
-			tagsCh <- make([]types.TagView, 0)
-			return
-		}
-		tagsCh <- tags
-	}()
+	if err := json.Unmarshal(categoriesJSON, &categories); err != nil {
+		return nil, fmt.Errorf("error unmarshalling categories: %w", err)
+	}
+	if err := json.Unmarshal(tagsJSON, &tags); err != nil {
+		return nil, fmt.Errorf("error unmarshalling tags: %w", err)
+	}
 
-	wg.Wait()
+	// Ana yapıya alt yapıları ata
+	blog.Metadata = metadata
+	blog.Content = content
+	blog.Stats = stats
+	blog.Categories = categories
+	blog.Tags = tags
 
-	close(categoriesCh)
-	close(tagsCh)
-
-	blogView.Categories = <-categoriesCh
-	blogView.Tags = <-tagsCh
-
-	return blogView, nil
+	return &blog, nil
 }
 
 func (r *Repository) SelectBlogBody(blogID uuid.UUID) (*types.BlogPostView, error) {

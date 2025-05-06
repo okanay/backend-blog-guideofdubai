@@ -1,6 +1,7 @@
 package BlogRepository
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -27,7 +28,15 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
             bc.description,
             bc.image,
             bc.read_time,
-            CASE WHEN bf.blog_id IS NOT NULL THEN true ELSE false END as featured
+            CASE WHEN bf.blog_id IS NOT NULL THEN true ELSE false END as featured,
+
+            -- Kategorileri JSON dizisi olarak al
+            (
+                SELECT COALESCE(json_agg(json_build_object('name', c.name, 'value', c.value)), '[]'::json)
+                FROM blog_categories bc2
+                JOIN categories c ON bc2.category_name = c.name
+                WHERE bc2.blog_id = bp.id
+            ) AS categories
         FROM blog_posts bp
         LEFT JOIN blog_content bc ON bp.id = bc.id
         LEFT JOIN blog_featured bf ON bp.id = bf.blog_id AND bf.language = bp.language
@@ -81,41 +90,24 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 		paramCounter++
 	}
 
-	// Kategori filtresi (AND mantığı: blogun sadece bu kategoriye sahip olması)
+	// Kategori filtresi
 	if options.CategoryValue != "" {
 		joins = append(joins, "JOIN blog_categories bc_rel ON bp.id = bc_rel.blog_id")
 		joins = append(joins, "JOIN categories c ON bc_rel.category_name = c.name")
-		query += " " + strings.Join(joins, " ")
-		conditions = append(conditions, fmt.Sprintf("c.name = $%d", paramCounter))
+		conditions = append(conditions, fmt.Sprintf("c.value = $%d", paramCounter))
 		params = append(params, options.CategoryValue)
 		paramCounter++
-
-		// Blogun sahip olduğu kategori sayısı 1 olmalı (sadece bu kategori)
-		query += `
-            GROUP BY bp.id, bp.group_id, bp.slug, bp.language, bp.featured, bp.status, bp.created_at, bp.updated_at, bc.title, bc.description, bc.image, bc.read_time
-            HAVING COUNT(DISTINCT c.name) = 1
-        `
 	}
 
-	// Tag filtresi (AND mantığı: blogun sadece bu tag'e sahip olması)
+	// Tag filtresi
 	if options.TagValue != "" {
-		// Eğer kategori de varsa, JOIN'ler zaten eklenmiş olabilir, tekrar eklememek için kontrol et
 		if !strings.Contains(query, "JOIN blog_tags") {
-			query += " JOIN blog_tags bt_rel ON bp.id = bt_rel.blog_id JOIN tags t ON bt_rel.tag_name = t.name"
+			joins = append(joins, "JOIN blog_tags bt_rel ON bp.id = bt_rel.blog_id")
+			joins = append(joins, "JOIN tags t ON bt_rel.tag_name = t.name")
 		}
-		conditions = append(conditions, fmt.Sprintf("t.name = $%d", paramCounter))
+		conditions = append(conditions, fmt.Sprintf("t.value = $%d", paramCounter))
 		params = append(params, options.TagValue)
 		paramCounter++
-
-		// Blogun sahip olduğu tag sayısı 1 olmalı (sadece bu tag)
-		if !strings.Contains(query, "GROUP BY") {
-			query += `
-                GROUP BY bp.id, bp.group_id, bp.slug, bp.language, bp.featured, bp.status, bp.created_at, bp.updated_at, bc.title, bc.description, bc.image, bc.read_time
-            `
-		}
-		query += `
-            HAVING COUNT(DISTINCT t.name) = 1
-        `
 	}
 
 	// Tarih aralığı filtresi
@@ -130,14 +122,21 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 		paramCounter++
 	}
 
+	// Join'leri sorguya ekle
+	if len(joins) > 0 {
+		for _, join := range joins {
+			query += " " + join
+		}
+	}
+
 	// WHERE koşullarını sorguya ekle
 	if len(conditions) > 0 {
-		if !strings.Contains(query, "GROUP BY") {
-			query += " WHERE " + strings.Join(conditions, " AND ")
-		} else {
-			// GROUP BY varsa, WHERE'i HAVING'den önce ekle
-			query = strings.Replace(query, "GROUP BY", "WHERE "+strings.Join(conditions, " AND ")+" GROUP BY", 1)
-		}
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	// Kategori ve etiket birden fazla eşleşme gerektiriyorsa, HAVING ile grup filtrelemesi
+	if options.CategoryValue != "" && options.TagValue != "" {
+		query += " GROUP BY bp.id, bp.group_id, bp.slug, bp.language, bp.status, bp.created_at, bp.updated_at, bc.title, bc.description, bc.image, bc.read_time, bf.blog_id"
 	}
 
 	// Sıralama seçenekleri
@@ -199,6 +198,7 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 	for rows.Next() {
 		var card types.BlogPostCardView
 		var content types.ContentCardView
+		var categoriesJSON []byte
 
 		// Scan sırası SQL SELECT sırasıyla aynı olmalı
 		err := rows.Scan(
@@ -206,14 +206,15 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 			&card.GroupID,
 			&card.Slug,
 			&card.Language,
-			&card.Status, // 5. sütun status
+			&card.Status,
 			&card.CreatedAt,
 			&card.UpdatedAt,
 			&content.Title,
 			&content.Description,
 			&content.Image,
 			&content.ReadTime,
-			&card.Featured, // 12. sütun featured (en son)
+			&card.Featured,
+			&categoriesJSON,
 		)
 
 		if err != nil {
@@ -221,13 +222,10 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 		}
 
 		card.Content = content
-		cardUUID, err := uuid.Parse(card.ID)
-		if err != nil {
-			return nil, fmt.Errorf("error converting card ID to UUID: %w", err)
-		}
 
-		categories, err := r.SelectBlogCategories(cardUUID)
-		if err == nil && len(categories) > 0 {
+		// JSON kategorileri çöz
+		var categories []types.CategoryView
+		if err := json.Unmarshal(categoriesJSON, &categories); err == nil {
 			card.Categories = categories
 		}
 

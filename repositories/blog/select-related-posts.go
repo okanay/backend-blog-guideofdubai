@@ -1,7 +1,7 @@
 package BlogRepository
 
 import (
-	"fmt"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,79 +19,8 @@ func (r *Repository) SelectRelatedPosts(
 ) ([]types.BlogPostCardView, error) {
 	defer utils.TimeTrack(time.Now(), "Blog -> Get Related Posts")
 
-	var relatedPosts []types.BlogPostCardView
-
-	// 1. Kategori/Tag/Language ile eşleşenler
-	query := makeRelatedPostQuery(true, true)
-	params := []any{pq.Array(categories), pq.Array(tags), excludeBlogID, language, limit}
-	posts, err := r.runRelatedPostQuery(query, params)
-	if err != nil {
-		return nil, err
-	}
-	relatedPosts = append(relatedPosts, posts...)
-	if len(relatedPosts) >= limit {
-		return relatedPosts[:limit], nil
-	}
-
-	// 2. Sadece Language ile eşleşenler
-	kalanLimit := limit - len(relatedPosts)
-	if kalanLimit > 0 {
-		query = makeRelatedPostQuery(false, true)
-		params = []any{pq.Array([]string{}), pq.Array([]string{}), excludeBlogID, language, kalanLimit}
-		posts, err = r.runRelatedPostQuery(query, params)
-		if err == nil {
-			for _, p := range posts {
-				alreadyExists := false
-				for _, rp := range relatedPosts {
-					if p.ID == rp.ID {
-						alreadyExists = true
-						break
-					}
-				}
-				if !alreadyExists {
-					relatedPosts = append(relatedPosts, p)
-				}
-			}
-		}
-	}
-	if len(relatedPosts) >= limit {
-		return relatedPosts[:limit], nil
-	}
-
-	// 3. Herhangi bir post (dil farketmez)
-	kalanLimit = limit - len(relatedPosts)
-	if kalanLimit > 0 {
-		query = makeRelatedPostQuery(false, false)
-		params = []any{pq.Array([]string{}), pq.Array([]string{}), excludeBlogID, kalanLimit}
-		posts, err = r.runRelatedPostQuery(query, params)
-		if err == nil {
-			for _, p := range posts {
-				alreadyExists := false
-				for _, rp := range relatedPosts {
-					if p.ID == rp.ID {
-						alreadyExists = true
-						break
-					}
-				}
-				if !alreadyExists {
-					relatedPosts = append(relatedPosts, p)
-				}
-			}
-		}
-	}
-
-	if len(relatedPosts) > limit {
-		relatedPosts = relatedPosts[:limit]
-	}
-	return relatedPosts, nil
-}
-
-func makeRelatedPostQuery(
-	mustMatchCategoryOrTag bool,
-	hasLanguage bool,
-) string {
-	// Query gövdesi
-	query := `
+	// İlgili blog yazılarını almak için temel sorgu
+	baseQuery := `
         SELECT
             bp.id,
             bp.group_id,
@@ -104,63 +33,161 @@ func makeRelatedPostQuery(
             bc.description,
             bc.image,
             bc.read_time,
+            CASE WHEN bf.blog_id IS NOT NULL THEN true ELSE false END as featured,
+
+            -- Kategorileri JSON dizisi olarak al
+            (
+                SELECT COALESCE(json_agg(json_build_object('name', c.name, 'value', c.value)), '[]'::json)
+                FROM blog_categories bc2
+                JOIN categories c ON bc2.category_name = c.name
+                WHERE bc2.blog_id = bp.id
+            ) AS categories,
+
+            -- Benzerlik skoru hesapla
             (
                 CASE WHEN ARRAY_LENGTH($1::text[], 1) > 0 THEN
-                    (SELECT COUNT(*) FROM blog_categories bc
-                     WHERE bc.blog_id = bp.id
-                     AND bc.category_name = ANY($1::text[])) * 10
+                    (SELECT COUNT(*) FROM blog_categories bc_match
+                     WHERE bc_match.blog_id = bp.id
+                     AND bc_match.category_name = ANY($1::text[])) * 10
                 ELSE 0 END
                 +
                 CASE WHEN ARRAY_LENGTH($2::text[], 1) > 0 THEN
-                    (SELECT COUNT(*) FROM blog_tags bt
-                     WHERE bt.blog_id = bp.id
-                     AND bt.tag_name = ANY($2::text[])) * 5
+                    (SELECT COUNT(*) FROM blog_tags bt_match
+                     WHERE bt_match.blog_id = bp.id
+                     AND bt_match.tag_name = ANY($2::text[])) * 5
                 ELSE 0 END
             ) AS match_score
         FROM blog_posts bp
         LEFT JOIN blog_content bc ON bp.id = bc.id
+        LEFT JOIN blog_featured bf ON bp.id = bf.blog_id AND bf.language = bp.language
         WHERE bp.id != $3
         AND bp.status = 'published'
     `
-	paramIdx := 4
 
-	if hasLanguage {
-		query += fmt.Sprintf(" AND bp.language = $%d", paramIdx)
-		paramIdx++
-	}
+	var query string
+	var params []any
+	var relatedPosts []types.BlogPostCardView
 
-	if mustMatchCategoryOrTag {
-		query += `
+	// İlk sorgu: Kategori veya etiketlerle eşleşen bloglar
+	if len(categories) > 0 || len(tags) > 0 {
+		query = baseQuery + `
             AND (
-                (ARRAY_LENGTH($1::text[], 1) > 0 AND EXISTS (
-                    SELECT 1 FROM blog_categories bc2
-                    WHERE bc2.blog_id = bp.id
-                    AND bc2.category_name = ANY($1::text[])
+                ($1::text[] IS NOT NULL AND ARRAY_LENGTH($1::text[], 1) > 0 AND EXISTS (
+                    SELECT 1 FROM blog_categories bc_match
+                    WHERE bc_match.blog_id = bp.id
+                    AND bc_match.category_name = ANY($1::text[])
                 ))
                 OR
-                (ARRAY_LENGTH($2::text[], 1) > 0 AND EXISTS (
-                    SELECT 1 FROM blog_tags bt2
-                    WHERE bt2.blog_id = bp.id
-                    AND bt2.tag_name = ANY($2::text[])
+                ($2::text[] IS NOT NULL AND ARRAY_LENGTH($2::text[], 1) > 0 AND EXISTS (
+                    SELECT 1 FROM blog_tags bt_match
+                    WHERE bt_match.blog_id = bp.id
+                    AND bt_match.tag_name = ANY($2::text[])
                 ))
             )
         `
+
+		// Dil filtresi
+		if language != "" {
+			query += " AND bp.language = $4"
+			query += " ORDER BY match_score DESC, bp.created_at DESC LIMIT $5"
+			params = []any{pq.Array(categories), pq.Array(tags), excludeBlogID, language, limit}
+		} else {
+			query += " ORDER BY match_score DESC, bp.created_at DESC LIMIT $4"
+			params = []any{pq.Array(categories), pq.Array(tags), excludeBlogID, limit}
+		}
+
+		// İlk sorguyu çalıştır
+		matchedPosts, err := r.runRelatedPostsQuery(query, params)
+		if err != nil {
+			return nil, err
+		}
+		relatedPosts = append(relatedPosts, matchedPosts...)
+
+		// Eğer yeterli sonuç bulduysak direkt döndür
+		if len(relatedPosts) >= limit {
+			return relatedPosts[:limit], nil
+		}
 	}
 
-	query += fmt.Sprintf(`
-        ORDER BY
-            match_score DESC,
-            bp.created_at DESC
-        LIMIT $%d
-    `, paramIdx)
+	// İkinci sorgu: Sadece dil bazında eşleşen bloglar (eğer ilk sorguda yeterli sonuç bulunamadıysa)
+	if language != "" && len(relatedPosts) < limit {
+		remainingLimit := limit - len(relatedPosts)
+		query = baseQuery + " AND bp.language = $4"
 
-	return query
+		// İlk sorguda bulunan blog ID'lerini hariç tut
+		if len(relatedPosts) > 0 {
+			var excludeIDs []uuid.UUID
+			excludeIDs = append(excludeIDs, excludeBlogID)
+
+			for _, post := range relatedPosts {
+				postID, err := uuid.Parse(post.ID)
+				if err == nil {
+					excludeIDs = append(excludeIDs, postID)
+				}
+			}
+
+			query += " AND bp.id != ALL($5::uuid[])"
+			query += " ORDER BY bp.created_at DESC LIMIT $6"
+			params = []any{pq.Array([]string{}), pq.Array([]string{}), excludeBlogID, language, pq.Array(excludeIDs), remainingLimit}
+		} else {
+			query += " ORDER BY bp.created_at DESC LIMIT $5"
+			params = []any{pq.Array([]string{}), pq.Array([]string{}), excludeBlogID, language, remainingLimit}
+		}
+
+		// İkinci sorguyu çalıştır
+		languageMatchedPosts, err := r.runRelatedPostsQuery(query, params)
+		if err == nil {
+			relatedPosts = append(relatedPosts, languageMatchedPosts...)
+		}
+
+		// Eğer yeterli sonuç bulduysak direkt döndür
+		if len(relatedPosts) >= limit {
+			return relatedPosts[:limit], nil
+		}
+	}
+
+	// Üçüncü sorgu: Herhangi bir dildeki en son bloglar (eğer hala yeterli sonuç bulunamadıysa)
+	if len(relatedPosts) < limit {
+		remainingLimit := limit - len(relatedPosts)
+		query = baseQuery
+
+		// Daha önce bulunan blog ID'lerini hariç tut
+		if len(relatedPosts) > 0 {
+			var excludeIDs []uuid.UUID
+			excludeIDs = append(excludeIDs, excludeBlogID)
+
+			for _, post := range relatedPosts {
+				postID, err := uuid.Parse(post.ID)
+				if err == nil {
+					excludeIDs = append(excludeIDs, postID)
+				}
+			}
+
+			query += " AND bp.id != ALL($4::uuid[])"
+			query += " ORDER BY bp.created_at DESC LIMIT $5"
+			params = []any{pq.Array([]string{}), pq.Array([]string{}), excludeBlogID, pq.Array(excludeIDs), remainingLimit}
+		} else {
+			query += " ORDER BY bp.created_at DESC LIMIT $4"
+			params = []any{pq.Array([]string{}), pq.Array([]string{}), excludeBlogID, remainingLimit}
+		}
+
+		// Üçüncü sorguyu çalıştır
+		anyLanguagePosts, err := r.runRelatedPostsQuery(query, params)
+		if err == nil {
+			relatedPosts = append(relatedPosts, anyLanguagePosts...)
+		}
+	}
+
+	// Limit'e göre sonuçları kırp
+	if len(relatedPosts) > limit {
+		relatedPosts = relatedPosts[:limit]
+	}
+
+	return relatedPosts, nil
 }
 
-func (r *Repository) runRelatedPostQuery(
-	query string,
-	params []any,
-) ([]types.BlogPostCardView, error) {
+// Yardımcı fonksiyon: İlgili blog sorgusunu çalıştır ve sonuçları işle
+func (r *Repository) runRelatedPostsQuery(query string, params []any) ([]types.BlogPostCardView, error) {
 	rows, err := r.db.Query(query, params...)
 	if err != nil {
 		return nil, err
@@ -172,6 +199,7 @@ func (r *Repository) runRelatedPostQuery(
 	for rows.Next() {
 		var card types.BlogPostCardView
 		var content types.ContentCardView
+		var categoriesJSON []byte
 		var matchScore int
 
 		err := rows.Scan(
@@ -186,17 +214,20 @@ func (r *Repository) runRelatedPostQuery(
 			&content.Description,
 			&content.Image,
 			&content.ReadTime,
+			&card.Featured,
+			&categoriesJSON,
 			&matchScore,
 		)
 		if err != nil {
-			continue
+			continue // Hatalı satırı atla
 		}
+
 		card.Content = content
 
-		cardID, _ := uuid.Parse(card.ID)
-		cardCategories, _ := r.SelectBlogCategories(cardID)
-		if len(cardCategories) > 0 {
-			card.Categories = cardCategories
+		// JSON kategorileri çöz
+		var categories []types.CategoryView
+		if err := json.Unmarshal(categoriesJSON, &categories); err == nil {
+			card.Categories = categories
 		}
 
 		relatedPosts = append(relatedPosts, card)
