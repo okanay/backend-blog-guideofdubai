@@ -2,9 +2,13 @@
 package cache
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -125,21 +129,81 @@ func (s *BlogCacheService) SaveBlogAndAlternativesBySlug(slug string, mainBlog *
 	return nil
 }
 
-// GetBlogCards blog kartlarını sorgu parametrelerine göre cache'den getirir
 func (s *BlogCacheService) GetBlogCards(queryOptions types.BlogCardQueryOptions) ([]types.BlogPostCardView, bool) {
-	cacheKey := fmt.Sprintf("blog_cards:%v", queryOptions)
-
+	cacheKey := s.GenerateBlogCardsCacheKey(queryOptions)
 	cachedData, exists := s.cache.Get(cacheKey)
 	if !exists {
 		return nil, false
 	}
-
 	var blogs []types.BlogPostCardView
 	if err := json.Unmarshal(cachedData, &blogs); err != nil {
 		return nil, false
 	}
-
 	return blogs, true
+}
+
+func (s *BlogCacheService) SaveBlogCards(queryOptions types.BlogCardQueryOptions, blogs []types.BlogPostCardView) error {
+	cacheKey := s.GenerateBlogCardsCacheKey(queryOptions)
+	jsonData, err := json.Marshal(blogs)
+	if err != nil {
+		return err
+	}
+	s.cache.Set(cacheKey, jsonData)
+	return nil
+}
+
+// GenerateBlogCardsCacheKey sorgu seçeneklerinden belirleyici bir cache key oluşturur
+func (s *BlogCacheService) GenerateBlogCardsCacheKey(options types.BlogCardQueryOptions) string {
+	// Ana key prefixini oluştur
+	prefix := "blog_cards"
+
+	// Filtreleme kriterlerini bir hash olarak ekle
+	h := sha256.New()
+
+	// ID varsa ekle
+	if options.ID != uuid.Nil {
+		h.Write([]byte(options.ID.String()))
+	}
+
+	// ID'ler slice'ı varsa ekle
+	if len(options.IDs) > 0 {
+		for _, id := range options.IDs {
+			h.Write([]byte(id.String()))
+		}
+	}
+
+	// Diğer string türündeki filtreleri ekle
+	h.Write([]byte(options.Title))
+	h.Write([]byte(options.Language))
+	h.Write([]byte(options.CategoryValue))
+	h.Write([]byte(options.TagValue))
+	h.Write([]byte(string(options.Status)))
+	h.Write([]byte(options.SortBy))
+	h.Write([]byte(string(options.SortDirection)))
+
+	// Boolean değerleri ekle
+	if options.Featured {
+		h.Write([]byte("featured:true"))
+	}
+
+	// Sayısal değerleri ekle
+	h.Write([]byte(strconv.Itoa(options.Limit)))
+	h.Write([]byte(strconv.Itoa(options.Offset)))
+
+	// Tarih filtreleri varsa ekle
+	if options.StartDate != nil {
+		h.Write([]byte(options.StartDate.Format(time.RFC3339)))
+	}
+	if options.EndDate != nil {
+		h.Write([]byte(options.EndDate.Format(time.RFC3339)))
+	}
+
+	// Hash'i base64 ile kodla
+	hashSum := h.Sum(nil)
+	hashBase64 := base64.StdEncoding.EncodeToString(hashSum)
+
+	// Sonuç: prefix:hash
+	return fmt.Sprintf("%s:%s", prefix, hashBase64)
 }
 
 // GetFeaturedPostsByLanguage belirli bir dil için featured postları cache'den getirir
@@ -182,19 +246,6 @@ func (s *BlogCacheService) InvalidateFeaturedPosts(language string) {
 func (s *BlogCacheService) InvalidateAllFeaturedPosts() {
 	// Featured posts cache'lerini temizle
 	s.cache.ClearPrefix("featured_posts_")
-}
-
-// SaveBlogCards blog kartlarını sorgu parametrelerine göre cache'e kaydeder
-func (s *BlogCacheService) SaveBlogCards(queryOptions types.BlogCardQueryOptions, blogs []types.BlogPostCardView) error {
-	cacheKey := fmt.Sprintf("blog_cards:%v", queryOptions)
-
-	jsonData, err := json.Marshal(blogs)
-	if err != nil {
-		return err
-	}
-
-	s.cache.Set(cacheKey, jsonData)
-	return nil
 }
 
 // GetFeaturedPosts öne çıkan blog yazılarını cache'den getirir
