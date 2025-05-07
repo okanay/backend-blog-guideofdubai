@@ -94,7 +94,7 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 	if options.CategoryValue != "" {
 		joins = append(joins, "JOIN blog_categories bc_rel ON bp.id = bc_rel.blog_id")
 		joins = append(joins, "JOIN categories c ON bc_rel.category_name = c.name")
-		conditions = append(conditions, fmt.Sprintf("c.value = $%d", paramCounter))
+		conditions = append(conditions, fmt.Sprintf("c.name = $%d", paramCounter))
 		params = append(params, options.CategoryValue)
 		paramCounter++
 	}
@@ -105,7 +105,7 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 			joins = append(joins, "JOIN blog_tags bt_rel ON bp.id = bt_rel.blog_id")
 			joins = append(joins, "JOIN tags t ON bt_rel.tag_name = t.name")
 		}
-		conditions = append(conditions, fmt.Sprintf("t.value = $%d", paramCounter))
+		conditions = append(conditions, fmt.Sprintf("t.name = $%d", paramCounter))
 		params = append(params, options.TagValue)
 		paramCounter++
 	}
