@@ -11,10 +11,10 @@ const (
 	// STATS RULES
 	VIEW_CACHE_EXPIRATION = 1 * time.Minute
 
-	AI_RATE_LIMIT_WINDOW         = 5 * time.Minute // Zaman penceresi (5 dakika)
-	AI_RATE_LIMIT_MAX_TOKENS     = 50000           // Zaman penceresi içinde kullanılabilecek maksimum token sayısı
-	AI_RATE_LIMIT_MAX_REQUESTS   = 25              // Zaman penceresinde maksimum istek sayısı
-	AI_RATE_LIMIT_REQ_PER_MINUTE = 5               // Dakika başına maksimum istek sayısı
+	AI_RATE_LIMIT_WINDOW         = 10 * time.Minute
+	AI_RATE_LIMIT_MAX_TOKENS     = 10000
+	AI_RATE_LIMIT_MAX_REQUESTS   = 30
+	AI_RATE_LIMIT_REQ_PER_MINUTE = 3
 
 	// Session Rules
 	REFRESH_TOKEN_LENGTH   = 32

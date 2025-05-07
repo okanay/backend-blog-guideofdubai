@@ -2,9 +2,7 @@
 package cache
 
 import (
-	"encoding/json"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 )
@@ -229,6 +227,7 @@ func (c *Cache) Stop() {
 func (c *Cache) GetStats() map[string]any {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+
 	now := time.Now()
 	totalItems := len(c.data)
 	var totalSize int64
@@ -239,17 +238,16 @@ func (c *Cache) GetStats() map[string]any {
 	var newestItemAge time.Duration
 	var avgItemAge time.Duration
 	var totalAge time.Duration
+
 	// Item detayları için
 	itemDetails := make([]map[string]any, 0)
-
-	// Rate limit için özel değişkenler
-	rateLimitItems := 0
 
 	for key, item := range c.data {
 		itemSize := int64(len(item.value))
 		totalSize += itemSize
 		itemAge := now.Sub(item.cachedAt)
 		totalAge += itemAge
+
 		// En eski ve en yeni item'ları bul
 		if oldestItemAge == 0 || itemAge > oldestItemAge {
 			oldestItemAge = itemAge
@@ -257,13 +255,16 @@ func (c *Cache) GetStats() map[string]any {
 		if newestItemAge == 0 || itemAge < newestItemAge {
 			newestItemAge = itemAge
 		}
+
 		// Özel TTL'e sahip item'ları say
 		if item.ttl > 0 {
 			itemsWithCustomTTL++
 		}
+
 		// Expired item kontrolü
 		isExpired := false
 		var expiresIn time.Duration
+
 		if item.ttl > 0 {
 			expiresIn = item.ttl - itemAge
 			if itemAge > item.ttl {
@@ -277,67 +278,22 @@ func (c *Cache) GetStats() map[string]any {
 				isExpired = true
 			}
 		}
+
 		if !isExpired {
 			activeItems++
 		}
 
-		// Rate limit girişlerini tespit et ve özel işle
-		var absoluteExpireTime time.Time
-		var windowResetAt time.Time
-		isRateLimitItem := false
-
-		// "ai_rate_limit:" ile başlayan anahtarları rate limit öğesi olarak işaretle
-		if strings.HasPrefix(key, "ai_rate_limit:") {
-			isRateLimitItem = true
-			rateLimitItems++
-
-			// JSON verisini parse et
-			var rateLimitInfo map[string]any
-			if err := json.Unmarshal(item.value, &rateLimitInfo); err == nil {
-				// WindowResetAt değerini bul ve parse et
-				if resetAtStr, ok := rateLimitInfo["WindowResetAt"].(string); ok {
-					if resetAt, err := time.Parse(time.RFC3339, resetAtStr); err == nil {
-						windowResetAt = resetAt
-						// Mutlak son kullanma tarihini hesapla
-						absoluteExpireTime = resetAt
-						// Kalan süreyi doğru hesapla
-						expiresIn = resetAt.Sub(now)
-					}
-				}
-			}
-		} else {
-			// Rate limit öğesi değilse, normal TTL hesaplama
-			if item.ttl > 0 {
-				absoluteExpireTime = item.cachedAt.Add(item.ttl)
-			} else {
-				absoluteExpireTime = item.cachedAt.Add(c.ttl)
-			}
-		}
-
-		// Item detayını ekle
+		// Item detayını ekle (opsiyonel, büyük cache'lerde performans için kapatılabilir)
 		itemDetail := map[string]any{
-			"key":                key,
-			"size":               itemSize,
-			"sizeHuman":          formatBytes(itemSize),
-			"age":                itemAge.String(),
-			"ageHuman":           formatDuration(itemAge),
-			"isExpired":          isExpired,
-			"expiresIn":          expiresIn.String(),
-			"expiresInHuman":     formatDuration(expiresIn),
-			"hasCustomTTL":       item.ttl > 0,
-			"absoluteExpireTime": absoluteExpireTime.Format(time.RFC3339),
-		}
-
-		// Rate limit öğeleri için ek bilgiler ekle
-		if isRateLimitItem {
-			itemDetail["isRateLimitItem"] = true
-			itemDetail["windowResetAt"] = windowResetAt.Format(time.RFC3339)
-
-			// JSON verisini detaylı göster
-			var rateLimitInfo map[string]any
-			if err := json.Unmarshal(item.value, &rateLimitInfo); err == nil {
-				itemDetail["rateLimitInfo"] = rateLimitInfo
-			}
+			"key":            key,
+			"size":           itemSize,
+			"sizeHuman":      formatBytes(itemSize),
+			"age":            itemAge.String(),
+			"ageHuman":       formatDuration(itemAge),
+			"isExpired":      isExpired,
+			"expiresIn":      expiresIn.String(),
+			"expiresInHuman": formatDuration(expiresIn),
+			"hasCustomTTL":   item.ttl > 0,
 		}
 
 		if item.ttl > 0 {
@@ -373,7 +329,6 @@ func (c *Cache) GetStats() map[string]any {
 			"activeItems":        activeItems,
 			"expiredItems":       expiredItems,
 			"itemsWithCustomTTL": itemsWithCustomTTL,
-			"rateLimitItems":     rateLimitItems, // Rate limit öğelerinin sayısı
 			"totalSize":          totalSize,
 			"totalSizeHuman":     formatBytes(totalSize),
 			"avgItemSize":        totalSize / int64(max(totalItems, 1)),
@@ -387,7 +342,6 @@ func (c *Cache) GetStats() map[string]any {
 			"lastCleanupTime":    c.lastCleanupTime.Format(time.RFC3339),
 			"uptime":             uptime.String(),
 			"uptimeHuman":        formatDuration(uptime),
-			"currentTime":        now.Format(time.RFC3339), // Mevcut zaman damgası
 		},
 		"itemAge": map[string]any{
 			"oldest":       oldestItemAge.String(),
@@ -402,7 +356,7 @@ func (c *Cache) GetStats() map[string]any {
 			"expirationRate":   fmt.Sprintf("%.2f%%", float64(expiredItems)/float64(max(totalItems, 1))*100),
 			"memoryEfficiency": getMemoryEfficiency(totalSize),
 		},
-		"details": itemDetails,
+		"details": itemDetails, // Büyük cache'lerde bu kısım kapatılabilir
 	}
 }
 
