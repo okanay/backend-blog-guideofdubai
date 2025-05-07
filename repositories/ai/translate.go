@@ -11,12 +11,12 @@ import (
 
 // TranslateHTML translates the given HTML content to the specified target language
 // It safely splits long HTML content into chunks to avoid token limitations
-func (r *Repository) TranslateHTML(ctx context.Context, html string, sourceLanguage, targetLanguage string, maxTokensPerChunk int) (string, int, error) {
+func (r *Repository) TranslateHTML(ctx context.Context, html string, sourceLanguage, targetLanguage string, maxTokensPerChunk int, chunkCount int) (string, int, error) {
 	// HTML'i güvenli parçalara böl
 	htmlChunks := splitHTMLSafely(html, maxTokensPerChunk)
 
 	// Eğer HTML içeriği çok uzunsa (örn. 10+ chunk) erken dönüş yap
-	if len(htmlChunks) > 10 {
+	if len(htmlChunks) > chunkCount {
 		return "", 0, fmt.Errorf("HTML içeriği çok uzun: %d parça, maksimum 10 parça destekleniyor", len(htmlChunks))
 	}
 
