@@ -1,12 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/okanay/backend-blog-guideofdubai/configs"
 	c "github.com/okanay/backend-blog-guideofdubai/configs"
 	db "github.com/okanay/backend-blog-guideofdubai/database"
 	"github.com/okanay/backend-blog-guideofdubai/handlers"
@@ -23,6 +25,7 @@ import (
 	TokenRepository "github.com/okanay/backend-blog-guideofdubai/repositories/token"
 	UserRepository "github.com/okanay/backend-blog-guideofdubai/repositories/user"
 	cache "github.com/okanay/backend-blog-guideofdubai/services"
+	"github.com/okanay/backend-blog-guideofdubai/types"
 )
 
 func main() {
@@ -61,6 +64,8 @@ func main() {
 	defer blogCache.Stop() // Graceful shutdown için ekleme
 
 	blogStats := middlewares.NewBlogStatsMiddleware(br, blogCache, 1*time.Minute)
+	aiRateLimit := middlewares.NewAIRateLimitMiddleware(blogCache)
+	defer aiRateLimit.Stop()
 
 	// Handler Initialization
 	mh := handlers.NewHandler()
@@ -136,6 +141,7 @@ func main() {
 	}
 
 	aiRoutes := auth.Group("/ai")
+	aiRoutes.Use(aiRateLimit.RateLimit())
 	{
 		aiRoutes.POST("/translate", ah.TranslateBlogPost)
 	}
@@ -151,17 +157,59 @@ func main() {
 			})
 		})
 
-		// Cache temizleme endpoint'i
 		adminAuth.DELETE("/cache", func(c *gin.Context) {
-			// Tüm cache'i temizle
-			blogCache.Clear()
+			// Blog cache'ini temizle, ama AI rate limit'lerini korur
+			blogCache.ClearExceptPrefix("ai_rate_limit:")
 
 			c.JSON(200, gin.H{
 				"success": true,
-				"message": "Cache başarıyla temizlendi",
+				"message": "Blog cache başarıyla temizlendi",
 			})
 		})
 
+		// AI Rate Limit cache temizleme endpoint'i (yeni)
+		adminAuth.DELETE("/ai/rate-limits", func(c *gin.Context) {
+			// Sadece AI rate limit cache'lerini temizle
+			blogCache.ClearAIRateLimits()
+
+			c.JSON(200, gin.H{
+				"success": true,
+				"message": "AI rate limit cache'leri başarıyla temizlendi",
+			})
+		})
+
+		adminAuth.GET("/ai/rate-limits", func(c *gin.Context) {
+			// Tüm rate limit kayıtlarını al
+			rateLimits := []map[string]any{}
+
+			// Cache'den "ai_rate_limit:" önekine sahip tüm anahtarları ara
+			allRateLimits := blogCache.GetAllWithPrefix("ai_rate_limit:")
+
+			for _, data := range allRateLimits {
+				var rateInfo types.RateLimitInfo
+				if err := json.Unmarshal(data, &rateInfo); err == nil {
+					rateLimits = append(rateLimits, map[string]any{
+						"userId":          rateInfo.UserID,
+						"requestCount":    rateInfo.RequestCount,
+						"tokensUsed":      rateInfo.TokensUsed,
+						"firstRequest":    rateInfo.FirstRequest,
+						"lastRequest":     rateInfo.LastRequest,
+						"windowResetAt":   rateInfo.WindowResetAt,
+						"requestsPerMin":  rateInfo.RequestsPerMin,
+						"minuteStartedAt": rateInfo.MinuteStartedAt,
+						"remaining": gin.H{
+							"requests": configs.AI_RATE_LIMIT_MAX_REQUESTS - rateInfo.RequestCount,
+							"tokens":   configs.AI_RATE_LIMIT_MAX_TOKENS - rateInfo.TokensUsed,
+						},
+					})
+				}
+			}
+
+			c.JSON(200, gin.H{
+				"success": true,
+				"data":    rateLimits,
+			})
+		})
 	}
 
 	// Start Server

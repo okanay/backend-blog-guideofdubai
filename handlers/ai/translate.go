@@ -17,7 +17,7 @@ func (h *Handler) TranslateBlogPost(c *gin.Context) {
 	}
 
 	// HTML içeriğini çevir
-	translatedHTML, err := h.AIRepository.TranslateHTML(
+	translatedHTML, tokensUsed, err := h.AIRepository.TranslateHTML(
 		c.Request.Context(),
 		request.HTML,
 		request.SourceLanguage,
@@ -34,12 +34,36 @@ func (h *Handler) TranslateBlogPost(c *gin.Context) {
 		return
 	}
 
+	// Token kullanımını context'e kaydet (rate limiter için)
+	c.Set("tokens_used", tokensUsed)
+
+	// İşlem maliyeti bilgisini ekleyelim
+	costInfo := calculateCost(tokensUsed)
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
 			"translatedHTML": translatedHTML,
 			"sourceLanguage": request.SourceLanguage,
 			"targetLanguage": request.TargetLanguage,
+			"tokensUsed":     tokensUsed,
+			"cost":           costInfo,
 		},
 	})
+}
+
+// Maliyet hesaplama yardımcı fonksiyonu
+func calculateCost(tokensUsed int) map[string]interface{} {
+	// Fiyatlandırma: Input $0.05, Output $0.20 (milyon token başına)
+	inputCost := float64(tokensUsed) * 0.05 / 1000000.0
+	outputCost := float64(tokensUsed) * 0.20 / 1000000.0
+	totalCost := inputCost + outputCost
+
+	return map[string]interface{}{
+		"inputTokens":  tokensUsed,
+		"outputTokens": tokensUsed, // Yaklaşık bir değer, gerçek durumda farklı olabilir
+		"inputCost":    inputCost,
+		"outputCost":   outputCost,
+		"totalCost":    totalCost,
+	}
 }

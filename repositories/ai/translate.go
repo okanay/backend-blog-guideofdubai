@@ -10,28 +10,29 @@ import (
 
 // TranslateHTML translates the given HTML content to the specified target language
 // It safely splits long HTML content into chunks to avoid token limitations
-func (r *Repository) TranslateHTML(ctx context.Context, html string, sourceLanguage, targetLanguage string, maxTokensPerChunk int) (string, error) {
-	// Split the HTML into safe chunks
+func (r *Repository) TranslateHTML(ctx context.Context, html string, sourceLanguage, targetLanguage string, maxTokensPerChunk int) (string, int, error) {
+	// HTML'i güvenli parçalara böl
 	htmlChunks := splitHTMLSafely(html, maxTokensPerChunk)
 
-	// Translate each chunk separately
+	// Her parçayı ayrı ayrı çevir
 	translatedChunks := make([]string, len(htmlChunks))
+	totalTokensUsed := 0
 
 	for i, chunk := range htmlChunks {
-		translatedChunk, err := r.translateChunk(ctx, chunk, sourceLanguage, targetLanguage)
+		translatedChunk, tokensUsed, err := r.translateChunk(ctx, chunk, sourceLanguage, targetLanguage)
 		if err != nil {
-			return "", fmt.Errorf("error translating chunk %d: %w", i, err)
+			return "", totalTokensUsed, fmt.Errorf("error translating chunk %d: %w", i, err)
 		}
 		translatedChunks[i] = translatedChunk
+		totalTokensUsed += tokensUsed
 	}
 
-	// Combine the translated chunks
-	return strings.Join(translatedChunks, ""), nil
+	// Çevrilen parçaları birleştir
+	return strings.Join(translatedChunks, ""), totalTokensUsed, nil
 }
 
 // translateChunk translates a single HTML chunk
-func (r *Repository) translateChunk(ctx context.Context, chunk, sourceLanguage, targetLanguage string) (string, error) {
-	// System instruction for translation
+func (r *Repository) translateChunk(ctx context.Context, chunk, sourceLanguage, targetLanguage string) (string, int, error) {
 	systemInstruction := fmt.Sprintf(`You are a professional %s-to-%s translator.
 Your task is to translate the provided HTML content.
 IMPORTANT: Translate ONLY the text content while preserving ALL HTML tags, attributes, and structure.
@@ -66,15 +67,18 @@ HTML Content:
 	)
 
 	if err != nil {
-		return "", fmt.Errorf("OpenAI API error: %w", err)
+		return "", 0, fmt.Errorf("OpenAI API error: %w", err)
 	}
 
 	if len(resp.Choices) == 0 {
-		return "", fmt.Errorf("empty response from OpenAI API")
+		return "", 0, fmt.Errorf("empty response from OpenAI API")
 	}
 
-	// Return the translated content
-	return resp.Choices[0].Message.Content, nil
+	// Toplam token kullanımını al
+	totalTokens := resp.Usage.TotalTokens
+
+	// Çevirilen içeriği ve token kullanımını döndür
+	return resp.Choices[0].Message.Content, totalTokens, nil
 }
 
 // splitHTMLSafely splits HTML content into smaller chunks while preserving HTML structure

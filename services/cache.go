@@ -95,6 +95,30 @@ func (c *Cache) Get(key string) ([]byte, bool) {
 	return item.value, true
 }
 
+// GetAllWithPrefix belirli bir önekle başlayan tüm anahtarları ve değerlerini döndürür
+func (c *Cache) GetAllWithPrefix(prefix string) map[string][]byte {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	result := make(map[string][]byte)
+	for key, item := range c.data {
+		if len(key) >= len(prefix) && key[:len(prefix)] == prefix {
+			// TTL kontrolü
+			if item.ttl > 0 && time.Since(item.cachedAt) > item.ttl {
+				continue // Süresi dolmuş
+			}
+
+			if time.Since(item.cachedAt) > c.ttl {
+				continue // Genel TTL süresi dolmuş
+			}
+
+			result[key] = item.value
+		}
+	}
+
+	return result
+}
+
 // Delete bir anahtarı önbellekten siler
 func (c *Cache) Delete(key string) {
 	c.mu.Lock()
@@ -109,6 +133,35 @@ func (c *Cache) Clear() {
 	defer c.mu.Unlock()
 
 	c.data = make(map[string]cacheItem)
+}
+
+func (c *Cache) ClearAIRateLimits() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	prefix := "ai_rate_limit:"
+	for key := range c.data {
+		if len(key) >= len(prefix) && key[:len(prefix)] == prefix {
+			delete(c.data, key)
+		}
+	}
+}
+
+// ClearExceptPrefix belirli bir önekle başlayan anahtarlar dışındaki tüm anahtarları temizler
+func (c *Cache) ClearExceptPrefix(prefix string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	keysToDelete := make([]string, 0)
+	for key := range c.data {
+		if len(key) < len(prefix) || key[:len(prefix)] != prefix {
+			keysToDelete = append(keysToDelete, key)
+		}
+	}
+
+	for _, key := range keysToDelete {
+		delete(c.data, key)
+	}
 }
 
 // ClearPrefix belirli bir önekle başlayan tüm anahtarları temizler
