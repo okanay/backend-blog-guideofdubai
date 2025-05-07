@@ -147,14 +147,21 @@ func (c *Cache) ClearAIRateLimits() {
 	}
 }
 
-// ClearExceptPrefix belirli bir önekle başlayan anahtarlar dışındaki tüm anahtarları temizler
-func (c *Cache) ClearExceptPrefix(prefix string) {
+// ClearExceptPrefixes belirli öneklerle başlayan anahtarlar dışındaki tüm anahtarları temizler
+func (c *Cache) ClearExceptPrefixes(prefixes []string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	keysToDelete := make([]string, 0)
 	for key := range c.data {
-		if len(key) < len(prefix) || key[:len(prefix)] != prefix {
+		keep := false
+		for _, prefix := range prefixes {
+			if len(key) >= len(prefix) && key[:len(prefix)] == prefix {
+				keep = true
+				break
+			}
+		}
+		if !keep {
 			keysToDelete = append(keysToDelete, key)
 		}
 	}

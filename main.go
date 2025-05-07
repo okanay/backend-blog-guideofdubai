@@ -61,9 +61,6 @@ func main() {
 	)
 
 	blogCache := cache.NewCache(30 * time.Minute)
-	defer blogCache.Stop() // Graceful shutdown için ekleme
-
-	blogStats := middlewares.NewBlogStatsMiddleware(br, blogCache, 1*time.Minute)
 	aiRateLimit := middlewares.NewAIRateLimitMiddleware(blogCache)
 
 	// Handler Initialization
@@ -118,7 +115,7 @@ func main() {
 	// Blog Routes - Public Access
 	blogPublic := router.Group("/blog")
 	{
-		blogPublic.GET("", blogStats.TrackView(), bh.SelectBlogBySlugID)
+		blogPublic.GET("", bh.SelectBlogBySlugID)
 		blogPublic.GET("/cards", bh.SelectBlogCards)
 		blogPublic.GET("/:id", bh.SelectBlogByID)
 		blogPublic.GET("/tags", bh.SelectAllTags)
@@ -158,7 +155,7 @@ func main() {
 
 		adminAuth.DELETE("/cache", func(c *gin.Context) {
 			// Blog cache'ini temizle, ama AI rate limit'lerini korur
-			blogCache.ClearExceptPrefix("ai_rate_limit:")
+			blogCache.ClearExceptPrefixes([]string{"ai_rate_limit:", "ai_rate_limit_minute:"})
 
 			c.JSON(200, gin.H{
 				"success": true,
