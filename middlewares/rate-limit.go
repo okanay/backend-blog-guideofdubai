@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -15,19 +13,18 @@ import (
 	"github.com/okanay/backend-blog-guideofdubai/types"
 )
 
-// AIRateLimitMiddleware yapısına temizleme interval'i ekleyelim
+// AIRateLimitMiddleware AI servisleri için rate limiting uygular
 type AIRateLimitMiddleware struct {
 	cache           *cache.Cache
 	cleanupInterval time.Duration
 	stopCleanup     chan struct{}
-	mu              sync.RWMutex // Senkronizasyon için mutex
 }
 
-// Constructor güncellendi
+// NewAIRateLimitMiddleware yeni bir AI rate limit middleware oluşturur
 func NewAIRateLimitMiddleware(cache *cache.Cache) *AIRateLimitMiddleware {
 	middleware := &AIRateLimitMiddleware{
 		cache:           cache,
-		cleanupInterval: 10 * time.Minute, // Her 10 dakika temizleme yap
+		cleanupInterval: 10 * time.Minute,
 		stopCleanup:     make(chan struct{}),
 	}
 
@@ -71,14 +68,15 @@ func (m *AIRateLimitMiddleware) cleanupExpiredRateLimits() {
 	}
 }
 
-// Graceful shutdown için Stop metodu
+// Stop middleware'i durdurur (graceful shutdown için)
 func (m *AIRateLimitMiddleware) Stop() {
 	close(m.stopCleanup)
 }
 
+// RateLimit rate limit middleware fonksiyonunu döndürür
 func (m *AIRateLimitMiddleware) RateLimit() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// User bilgisini al (AuthMiddleware tarafından set edilmiş olmalı)
+		// Kullanıcı ID'sini al
 		userIDInterface, exists := c.Get("user_id")
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{
@@ -101,342 +99,162 @@ func (m *AIRateLimitMiddleware) RateLimit() gin.HandlerFunc {
 			return
 		}
 
-		// Rate limit bilgisini al
-		rateInfo := m.getRateLimitInfo(userID.String())
-
-		// Limit kontrolü
-		isAllowed := true
-		limitMessage := ""
-
-		if rateInfo.RequestCount >= configs.AI_RATE_LIMIT_MAX_REQUESTS {
-			isAllowed = false
-			limitMessage = fmt.Sprintf("Maksimum istek limiti aşıldı (%d/%d). Limit %s sonra sıfırlanacak.",
-				rateInfo.RequestCount, configs.AI_RATE_LIMIT_MAX_REQUESTS,
-				time.Until(rateInfo.WindowResetAt).Round(time.Second))
-		} else if rateInfo.TokensUsed >= configs.AI_RATE_LIMIT_MAX_TOKENS {
-			isAllowed = false
-			limitMessage = fmt.Sprintf("Maksimum token limiti aşıldı (%d/%d). Limit %s sonra sıfırlanacak.",
-				rateInfo.TokensUsed, configs.AI_RATE_LIMIT_MAX_TOKENS,
-				time.Until(rateInfo.WindowResetAt).Round(time.Second))
-		} else if rateInfo.RequestsPerMin >= configs.AI_RATE_LIMIT_REQ_PER_MINUTE {
-			isAllowed = false
-			limitMessage = fmt.Sprintf("Dakika başına istek limiti aşıldı (%d/%d). Lütfen %s sonra tekrar deneyin.",
-				rateInfo.RequestsPerMin, configs.AI_RATE_LIMIT_REQ_PER_MINUTE,
-				time.Until(rateInfo.MinuteStartedAt.Add(time.Minute)).Round(time.Second))
-		}
-
-		// Rate limit başlıklarını ekle
-		c.Header("X-RateLimit-Limit", fmt.Sprintf("%d", configs.AI_RATE_LIMIT_MAX_REQUESTS))
-		c.Header("X-RateLimit-Remaining", fmt.Sprintf("%d", configs.AI_RATE_LIMIT_MAX_REQUESTS-rateInfo.RequestCount))
-		c.Header("X-RateLimit-Reset", fmt.Sprintf("%d", rateInfo.WindowResetAt.Unix()))
-		c.Header("X-RateLimit-Minute-Limit", fmt.Sprintf("%d", configs.AI_RATE_LIMIT_REQ_PER_MINUTE))
-		c.Header("X-RateLimit-Minute-Remaining", fmt.Sprintf("%d", configs.AI_RATE_LIMIT_REQ_PER_MINUTE-rateInfo.RequestsPerMin))
-		c.Header("X-RateLimit-Minute-Reset", fmt.Sprintf("%d", rateInfo.MinuteStartedAt.Add(time.Minute).Unix()))
-
-		if !isAllowed {
-			retryAfter := 60 // Varsayılan değer (1 dakika)
-
-			// Doğru Retry-After değerini belirle
-			if strings.Contains(limitMessage, "Dakika başına") {
-				retryAfter = int(time.Until(rateInfo.MinuteStartedAt.Add(time.Minute)).Seconds())
-			} else {
-				retryAfter = int(time.Until(rateInfo.WindowResetAt).Seconds())
-			}
-
-			if retryAfter < 0 {
-				retryAfter = 0
-			}
-
-			c.Header("Retry-After", fmt.Sprintf("%d", retryAfter))
+		// Rate limit bilgisini al veya oluştur
+		rateLimit, isLimited, resetTime := m.checkAndUpdateRateLimit(userID.String())
+		if isLimited {
+			// Rate limit başlıklarını ekle
+			c.Header("X-RateLimit-Limit", fmt.Sprintf("%d", configs.AI_RATE_LIMIT_MAX_REQUESTS))
+			c.Header("X-RateLimit-Remaining", fmt.Sprintf("%d", 0))
+			c.Header("X-RateLimit-Reset", fmt.Sprintf("%d", resetTime.Unix()))
+			c.Header("Retry-After", fmt.Sprintf("%d", int(time.Until(resetTime).Seconds())))
 
 			c.JSON(http.StatusTooManyRequests, gin.H{
 				"success": false,
 				"error":   "rate_limit_exceeded",
-				"message": limitMessage,
+				"message": fmt.Sprintf("Rate limit aşıldı. %s sonra tekrar deneyin.", time.Until(resetTime).Round(time.Second)),
 				"data": gin.H{
-					"resetAt":    rateInfo.WindowResetAt,
-					"retryAfter": retryAfter,
-					"limits": gin.H{
-						"requests": gin.H{
-							"total": gin.H{
-								"limit":     configs.AI_RATE_LIMIT_MAX_REQUESTS,
-								"used":      rateInfo.RequestCount,
-								"remaining": configs.AI_RATE_LIMIT_MAX_REQUESTS - rateInfo.RequestCount,
-								"reset":     rateInfo.WindowResetAt,
-							},
-							"perMinute": gin.H{
-								"limit":     configs.AI_RATE_LIMIT_REQ_PER_MINUTE,
-								"used":      rateInfo.RequestsPerMin,
-								"remaining": configs.AI_RATE_LIMIT_REQ_PER_MINUTE - rateInfo.RequestsPerMin,
-								"reset":     rateInfo.MinuteStartedAt.Add(time.Minute),
-							},
-						},
-						"tokens": gin.H{
-							"limit":     configs.AI_RATE_LIMIT_MAX_TOKENS,
-							"used":      rateInfo.TokensUsed,
-							"remaining": configs.AI_RATE_LIMIT_MAX_TOKENS - rateInfo.TokensUsed,
-						},
-					},
+					"reset":     resetTime,
+					"remaining": 0,
+					"limit":     configs.AI_RATE_LIMIT_MAX_REQUESTS,
 				},
 			})
 			c.Abort()
 			return
 		}
 
-		// İstek sayaçlarını güncelle (istek öncesi)
-		rateInfo.RequestCount++
-		rateInfo.RequestsPerMin++
-		rateInfo.LastRequest = time.Now()
+		// Rate limit başlıklarını ekle
+		c.Header("X-RateLimit-Limit", fmt.Sprintf("%d", configs.AI_RATE_LIMIT_MAX_REQUESTS))
+		c.Header("X-RateLimit-Remaining", fmt.Sprintf("%d", configs.AI_RATE_LIMIT_MAX_REQUESTS-rateLimit.RequestCount))
+		c.Header("X-RateLimit-Reset", fmt.Sprintf("%d", rateLimit.WindowResetAt.Unix()))
 
-		// Rate limit bilgisini kaydet
-		m.saveRateLimitInfo(rateInfo)
-
-		// Request öncesi zamanı kaydet
-		requestStart := time.Now()
-
-		// Sonraki middleware'lere devam et
+		// Orijinal isteği işle
 		c.Next()
 
-		// İstek başarılı ise (sadece 200 OK durumunda)
+		// Yanıt sonrası token sayısını güncelle
 		if c.Writer.Status() == http.StatusOK {
-			// İstek süresini hesapla
-			requestDuration := time.Since(requestStart)
-
-			// Log kaydı oluştur (opsiyonel)
-			fmt.Printf("AI Request from user %s took %v\n", userID.String(), requestDuration)
-
-			// Yanıt gövdesinden kullanılan token sayısını al
-			// Önce rate limit bilgisini yeniden yükle
-			updatedRateInfo := m.getRateLimitInfo(userID.String())
-
-			// Response body'den token kullanım bilgisini al (mümkünse)
 			tokensUsed := 0
-
-			// Yanıt içeriğinden token kullanımını bulmaya çalış
 			if ctxTokens, exists := c.Get("tokens_used"); exists {
 				if tokensInt, ok := ctxTokens.(int); ok {
 					tokensUsed = tokensInt
 				}
 			}
 
-			// Eğer token bilgisi bulunamadıysa tahmin et
-			if tokensUsed == 0 {
-				// Varsayılan değer - AI handler'da güncellenecek
-				tokensUsed = 1000
+			if tokensUsed > 0 {
+				m.updateTokenUsage(userID.String(), tokensUsed)
 			}
-
-			// Token kullanımını güncelle
-			updatedRateInfo.TokensUsed += tokensUsed
-
-			// Güncellenmiş rate limit bilgisini kaydet
-			m.saveRateLimitInfo(updatedRateInfo)
 		}
 	}
 }
 
-func (m *AIRateLimitMiddleware) checkRateLimit(userID string) (*types.RateLimitInfo, bool, time.Time, string) {
-	// Cache eriişimi için lock kullan
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
+// checkAndUpdateRateLimit rate limit kontrolü yapar ve istek sayısını günceller
+func (m *AIRateLimitMiddleware) checkAndUpdateRateLimit(userID string) (*types.RateLimitInfo, bool, time.Time) {
 	cacheKey := fmt.Sprintf("ai_rate_limit:%s", userID)
-
-	// Cache'den rate limit bilgisini al
-	data, exists := m.cache.Get(cacheKey)
-
 	now := time.Now()
-	var rateInfo types.RateLimitInfo
-	var limitMessage string
 
-	// Cache'de yoksa veya süresi dolmuşsa yeni bir rate limit kaydı oluştur
+	// Cache'den mevcut bilgiyi al
+	data, exists := m.cache.Get(cacheKey)
+	var rateInfo types.RateLimitInfo
+
 	if !exists {
+		// Yeni kullanıcı, ilk kayıt oluştur
 		rateInfo = types.RateLimitInfo{
 			UserID:          userID,
-			RequestCount:    0,
+			RequestCount:    1, // İlk istek
 			TokensUsed:      0,
-			RequestsPerMin:  0,
+			RequestsPerMin:  1,
 			FirstRequest:    now,
 			LastRequest:     now,
 			WindowResetAt:   now.Add(configs.AI_RATE_LIMIT_WINDOW),
 			MinuteStartedAt: now,
 		}
 	} else {
-		// Var olan rate limit bilgisini unmarshal et
+		// Mevcut kaydı yükle
 		if err := json.Unmarshal(data, &rateInfo); err != nil {
-			// Hata durumunda yeni bir kayıt oluştur
+			// Hata durumunda yeni kayıt oluştur
 			rateInfo = types.RateLimitInfo{
 				UserID:          userID,
-				RequestCount:    0,
+				RequestCount:    1,
 				TokensUsed:      0,
-				RequestsPerMin:  0,
-				FirstRequest:    now,
-				LastRequest:     now,
-				WindowResetAt:   now.Add(configs.AI_RATE_LIMIT_WINDOW),
-				MinuteStartedAt: now,
-			}
-		}
-
-		// Zaman penceresi süresi dolmuş mu kontrol et
-		if now.After(rateInfo.WindowResetAt) {
-			// Süresi dolmuşsa, pencereyi sıfırla
-			rateInfo = types.RateLimitInfo{
-				UserID:          userID,
-				RequestCount:    0,
-				TokensUsed:      0,
-				RequestsPerMin:  0,
+				RequestsPerMin:  1,
 				FirstRequest:    now,
 				LastRequest:     now,
 				WindowResetAt:   now.Add(configs.AI_RATE_LIMIT_WINDOW),
 				MinuteStartedAt: now,
 			}
 		} else {
-			// Dakika başına istek sayısını kontrol et
-			if now.Sub(rateInfo.MinuteStartedAt) > time.Minute {
-				// Dakika dolmuşsa dakika sayacını sıfırla
-				rateInfo.RequestsPerMin = 0
-				rateInfo.MinuteStartedAt = now
+			// Zaman penceresi sıfırlama kontrolü
+			if now.After(rateInfo.WindowResetAt) {
+				// Pencere süresi dolmuş, yeni pencere başlat
+				rateInfo = types.RateLimitInfo{
+					UserID:          userID,
+					RequestCount:    1,
+					TokensUsed:      0,
+					RequestsPerMin:  1,
+					FirstRequest:    now,
+					LastRequest:     now,
+					WindowResetAt:   now.Add(configs.AI_RATE_LIMIT_WINDOW),
+					MinuteStartedAt: now,
+				}
+			} else {
+				// Dakika başına kontrol
+				if now.Sub(rateInfo.MinuteStartedAt) > time.Minute {
+					rateInfo.RequestsPerMin = 1
+					rateInfo.MinuteStartedAt = now
+				} else {
+					rateInfo.RequestsPerMin++
+				}
+
+				// İstek sayısını artır
+				rateInfo.RequestCount++
+				rateInfo.LastRequest = now
 			}
 		}
 	}
 
-	// Rate limit'i aşmış mı kontrol et (OR operatörü kullanıldı)
-	isAllowed := true
+	// Rate limit kontrolü
+	isLimited := false
 
-	if rateInfo.RequestCount >= configs.AI_RATE_LIMIT_MAX_REQUESTS {
-		isAllowed = false
-		limitMessage = fmt.Sprintf("Maksimum istek limiti aşıldı (%d/%d). Limit %s sonra sıfırlanacak.",
-			rateInfo.RequestCount, configs.AI_RATE_LIMIT_MAX_REQUESTS,
-			time.Until(rateInfo.WindowResetAt).Round(time.Second))
-	} else if rateInfo.TokensUsed >= configs.AI_RATE_LIMIT_MAX_TOKENS {
-		isAllowed = false
-		limitMessage = fmt.Sprintf("Maksimum token limiti aşıldı (%d/%d). Limit %s sonra sıfırlanacak.",
-			rateInfo.TokensUsed, configs.AI_RATE_LIMIT_MAX_TOKENS,
-			time.Until(rateInfo.WindowResetAt).Round(time.Second))
-	} else if rateInfo.RequestsPerMin >= configs.AI_RATE_LIMIT_REQ_PER_MINUTE {
-		isAllowed = false
-		limitMessage = fmt.Sprintf("Dakika başına istek limiti aşıldı (%d/%d). Lütfen %s sonra tekrar deneyin.",
-			rateInfo.RequestsPerMin, configs.AI_RATE_LIMIT_REQ_PER_MINUTE,
-			time.Until(rateInfo.MinuteStartedAt.Add(time.Minute)).Round(time.Second))
+	// Ana limit kontrolü
+	if rateInfo.RequestCount > configs.AI_RATE_LIMIT_MAX_REQUESTS {
+		isLimited = true
 	}
 
-	return &rateInfo, isAllowed, rateInfo.WindowResetAt, limitMessage
-}
-
-func (m *AIRateLimitMiddleware) updateRateLimit(userID string, tokensUsed int) {
-	cacheKey := fmt.Sprintf("ai_rate_limit:%s", userID)
-
-	// Cache'den mevcut rate limit bilgisini al
-	data, exists := m.cache.Get(cacheKey)
-
-	now := time.Now()
-	var rateInfo types.RateLimitInfo
-
-	if !exists {
-		// Cache'de yoksa yeni bir kayıt oluştur
-		rateInfo = types.RateLimitInfo{
-			UserID:        userID,
-			RequestCount:  1,
-			TokensUsed:    tokensUsed,
-			FirstRequest:  now,
-			LastRequest:   now,
-			WindowResetAt: now.Add(configs.AI_RATE_LIMIT_WINDOW),
-		}
-	} else {
-		// Var olan bilgiyi unmarshal et
-		if err := json.Unmarshal(data, &rateInfo); err != nil {
-			// Hata durumunda yeni bir kayıt oluştur
-			rateInfo = types.RateLimitInfo{
-				UserID:        userID,
-				RequestCount:  1,
-				TokensUsed:    tokensUsed,
-				FirstRequest:  now,
-				LastRequest:   now,
-				WindowResetAt: now.Add(configs.AI_RATE_LIMIT_WINDOW),
-			}
-		} else {
-			// Mevcut bilgiyi güncelle
-			rateInfo.RequestCount++
-			rateInfo.TokensUsed += tokensUsed
-			rateInfo.LastRequest = now
-		}
+	// Token limit kontrolü
+	if rateInfo.TokensUsed >= configs.AI_RATE_LIMIT_MAX_TOKENS {
+		isLimited = true
 	}
 
-	// Güncellenmiş bilgiyi marshal et ve cache'e yaz
+	// Dakika başına limit kontrolü
+	if rateInfo.RequestsPerMin > configs.AI_RATE_LIMIT_REQ_PER_MINUTE {
+		isLimited = true
+	}
+
+	// Cache'i güncelle (sınır aşılsa bile kaydedelim)
 	jsonData, _ := json.Marshal(rateInfo)
 	m.cache.SetWithTTL(cacheKey, jsonData, configs.AI_RATE_LIMIT_WINDOW)
+
+	return &rateInfo, isLimited, rateInfo.WindowResetAt
 }
 
-// getRateLimitInfo cache'den rate limit bilgisini alır veya yeni oluşturur
-func (m *AIRateLimitMiddleware) getRateLimitInfo(userID string) *types.RateLimitInfo {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
+// updateTokenUsage kullanıcının token kullanımını günceller
+func (m *AIRateLimitMiddleware) updateTokenUsage(userID string, tokensUsed int) {
 	cacheKey := fmt.Sprintf("ai_rate_limit:%s", userID)
+
+	// Cache'den mevcut bilgiyi al
 	data, exists := m.cache.Get(cacheKey)
-
-	now := time.Now()
-
 	if !exists {
-		return &types.RateLimitInfo{
-			UserID:          userID,
-			RequestCount:    0,
-			TokensUsed:      0,
-			RequestsPerMin:  0,
-			FirstRequest:    now,
-			LastRequest:     now,
-			WindowResetAt:   now.Add(configs.AI_RATE_LIMIT_WINDOW),
-			MinuteStartedAt: now,
-		}
+		return // Kullanıcı kaydı yoksa çık
 	}
 
 	var rateInfo types.RateLimitInfo
 	if err := json.Unmarshal(data, &rateInfo); err != nil {
-		return &types.RateLimitInfo{
-			UserID:          userID,
-			RequestCount:    0,
-			TokensUsed:      0,
-			RequestsPerMin:  0,
-			FirstRequest:    now,
-			LastRequest:     now,
-			WindowResetAt:   now.Add(configs.AI_RATE_LIMIT_WINDOW),
-			MinuteStartedAt: now,
-		}
+		return // Hata varsa çık
 	}
 
-	// Zaman penceresi kontrolü
-	if now.After(rateInfo.WindowResetAt) {
-		return &types.RateLimitInfo{
-			UserID:          userID,
-			RequestCount:    0,
-			TokensUsed:      0,
-			RequestsPerMin:  0,
-			FirstRequest:    now,
-			LastRequest:     now,
-			WindowResetAt:   now.Add(configs.AI_RATE_LIMIT_WINDOW),
-			MinuteStartedAt: now,
-		}
-	}
+	// Token kullanımını güncelle
+	rateInfo.TokensUsed += tokensUsed
 
-	// Dakika kontrolü
-	if now.Sub(rateInfo.MinuteStartedAt) > time.Minute {
-		rateInfo.RequestsPerMin = 0
-		rateInfo.MinuteStartedAt = now
-	}
-
-	return &rateInfo
-}
-
-// saveRateLimitInfo rate limit bilgisini cache'e kaydeder
-func (m *AIRateLimitMiddleware) saveRateLimitInfo(rateInfo *types.RateLimitInfo) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	cacheKey := fmt.Sprintf("ai_rate_limit:%s", rateInfo.UserID)
-	jsonData, err := json.Marshal(rateInfo)
-	if err != nil {
-		return err
-	}
-
+	// Cache'i güncelle
+	jsonData, _ := json.Marshal(rateInfo)
 	m.cache.SetWithTTL(cacheKey, jsonData, configs.AI_RATE_LIMIT_WINDOW)
-	return nil
 }
