@@ -22,8 +22,8 @@ func (h *Handler) TranslateBlogPost(c *gin.Context) {
 		request.HTML,
 		request.SourceLanguage,
 		request.TargetLanguage,
-		1000,
-		20,
+		500,
+		30,
 	)
 
 	if err != nil {

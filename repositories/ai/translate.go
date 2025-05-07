@@ -17,7 +17,7 @@ func (r *Repository) TranslateHTML(ctx context.Context, html string, sourceLangu
 
 	// Eğer HTML içeriği çok uzunsa (örn. 10+ chunk) erken dönüş yap
 	if len(htmlChunks) > chunkCount {
-		return "", 0, fmt.Errorf("HTML içeriği çok uzun: %d parça, maksimum 10 parça destekleniyor", len(htmlChunks))
+		return "", 0, fmt.Errorf("HTML içeriği çok uzun: maksimum %d token destekleniyor.", chunkCount*maxTokensPerChunk)
 	}
 
 	// Her parça için sonuçları tutacak dilimler
