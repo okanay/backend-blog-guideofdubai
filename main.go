@@ -10,11 +10,13 @@ import (
 	c "github.com/okanay/backend-blog-guideofdubai/configs"
 	db "github.com/okanay/backend-blog-guideofdubai/database"
 	"github.com/okanay/backend-blog-guideofdubai/handlers"
+	AIHandler "github.com/okanay/backend-blog-guideofdubai/handlers/ai"
 	BlogHandler "github.com/okanay/backend-blog-guideofdubai/handlers/blog"
 	ImageHandler "github.com/okanay/backend-blog-guideofdubai/handlers/image"
 	UserHandler "github.com/okanay/backend-blog-guideofdubai/handlers/user"
 	"github.com/okanay/backend-blog-guideofdubai/middlewares"
 	mw "github.com/okanay/backend-blog-guideofdubai/middlewares"
+	AIRepository "github.com/okanay/backend-blog-guideofdubai/repositories/ai"
 	BlogRepository "github.com/okanay/backend-blog-guideofdubai/repositories/blog"
 	ImageRepository "github.com/okanay/backend-blog-guideofdubai/repositories/image"
 	R2Repository "github.com/okanay/backend-blog-guideofdubai/repositories/r2"
@@ -42,6 +44,8 @@ func main() {
 	tr := TokenRepository.NewRepository(sqlDB)
 	br := BlogRepository.NewRepository(sqlDB)
 
+	ar := AIRepository.NewRepository(os.Getenv("OPENAI_API_KEY"))
+
 	ir := ImageRepository.NewRepository(sqlDB)
 	r2 := R2Repository.NewRepository(
 		os.Getenv("R2_ACCOUNT_ID"),
@@ -63,6 +67,7 @@ func main() {
 	uh := UserHandler.NewHandler(ur, tr)
 	bh := BlogHandler.NewHandler(br, blogCache)
 	ih := ImageHandler.NewHandler(ir, r2)
+	ah := AIHandler.NewHandler(ar)
 
 	// Router ve Middleware Yapılandırması
 	router := gin.Default()
@@ -128,6 +133,11 @@ func main() {
 		imageAuth.POST("/confirm", ih.ConfirmUpload)
 		imageAuth.GET("", ih.GetUserImages)
 		imageAuth.DELETE("/:id", ih.DeleteImage)
+	}
+
+	aiRoutes := auth.Group("/ai")
+	{
+		aiRoutes.POST("/translate", ah.TranslateBlogPost)
 	}
 
 	adminAuth := auth.Group("/admin")
