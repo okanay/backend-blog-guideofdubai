@@ -22,6 +22,7 @@ func NewAIRateLimitMiddleware(cache *cache.Cache) *AIRateLimitMiddleware {
 		cache: cache,
 	}
 }
+
 func (m *AIRateLimitMiddleware) RateLimit() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userIDInterface, exists := c.Get("user_id")
@@ -34,7 +35,6 @@ func (m *AIRateLimitMiddleware) RateLimit() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-
 		userID, ok := userIDInterface.(uuid.UUID)
 		if !ok {
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -45,9 +45,7 @@ func (m *AIRateLimitMiddleware) RateLimit() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-
 		rateInfo, allowed, resetTime, minuteLimit := m.checkRateLimit(userID.String())
-
 		c.Header("X-RateLimit-Limit", fmt.Sprintf("%d", configs.AI_RATE_LIMIT_MAX_REQUESTS))
 		c.Header("X-RateLimit-Remaining", fmt.Sprintf("%d", configs.AI_RATE_LIMIT_MAX_REQUESTS-rateInfo.RequestCount))
 		c.Header("X-RateLimit-Reset", fmt.Sprintf("%d", resetTime.Unix()))
@@ -57,28 +55,92 @@ func (m *AIRateLimitMiddleware) RateLimit() gin.HandlerFunc {
 		if !allowed {
 			retryAfter := int(time.Until(resetTime).Seconds())
 			retryAfter = max(retryAfter, 0)
-
 			c.Header("Retry-After", fmt.Sprintf("%d", retryAfter))
 
+			// Hangi limitin aşıldığını belirle
+			var limitType string
+			var limitMessage string
+			var resetMessage string
+
+			isMinuteLimitExceeded := minuteLimit >= configs.AI_RATE_LIMIT_REQ_PER_MINUTE
+			isTotalLimitExceeded := rateInfo.RequestCount >= configs.AI_RATE_LIMIT_MAX_REQUESTS
+			isTokenLimitExceeded := rateInfo.TokensUsed >= configs.AI_RATE_LIMIT_MAX_TOKENS
+
+			minuteResetTime := time.Now().Add(1 * time.Minute)
+			retryAfterMinutes := 1
+
+			if isMinuteLimitExceeded && (retryAfter > 60) {
+				// Eğer toplam limit de aşıldıysa ve dakika limiti de aşıldıysa
+				limitType = "hem dakika hem toplam"
+				limitMessage = fmt.Sprintf("Dakika başına %d istek ve toplam %d dakikada %d istek",
+					configs.AI_RATE_LIMIT_REQ_PER_MINUTE,
+					int(configs.AI_RATE_LIMIT_WINDOW.Minutes()),
+					configs.AI_RATE_LIMIT_MAX_REQUESTS)
+				resetMessage = fmt.Sprintf("Bir sonraki isteği %d dakika sonra yapabilirsiniz, tam limitlere ise %s tarihinde ulaşacaksınız",
+					retryAfterMinutes,
+					resetTime.Format("15:04:05"))
+			} else if isMinuteLimitExceeded {
+				// Sadece dakika limiti aşıldıysa
+				limitType = "dakika"
+				limitMessage = fmt.Sprintf("Dakika başına maksimum %d istek yapabilirsiniz",
+					configs.AI_RATE_LIMIT_REQ_PER_MINUTE)
+				resetMessage = fmt.Sprintf("Bir sonraki isteği %d dakika sonra (%s) yapabilirsiniz",
+					retryAfterMinutes,
+					minuteResetTime.Format("15:04:05"))
+			} else if isTotalLimitExceeded {
+				// Sadece toplam limit aşıldıysa
+				limitType = "toplam"
+				limitMessage = fmt.Sprintf("%d dakikalık süre içinde toplam %d istek yapabilirsiniz",
+					int(configs.AI_RATE_LIMIT_WINDOW.Minutes()),
+					configs.AI_RATE_LIMIT_MAX_REQUESTS)
+				resetMessage = fmt.Sprintf("Limitiniz %s tarihinde yenilenecektir",
+					resetTime.Format("15:04:05"))
+			} else if isTokenLimitExceeded {
+				// Token limiti aşıldıysa
+				limitType = "token"
+				limitMessage = fmt.Sprintf("%d dakikalık süre içinde toplam %d token kullanabilirsiniz",
+					int(configs.AI_RATE_LIMIT_WINDOW.Minutes()),
+					configs.AI_RATE_LIMIT_MAX_TOKENS)
+				resetMessage = fmt.Sprintf("Token limitiniz %s tarihinde yenilenecektir",
+					resetTime.Format("15:04:05"))
+			} else {
+				// Genel durum
+				limitType = "istek"
+				limitMessage = fmt.Sprintf("Dakika başına %d istek ve toplam %d dakikada %d istek yapabilirsiniz",
+					configs.AI_RATE_LIMIT_REQ_PER_MINUTE,
+					int(configs.AI_RATE_LIMIT_WINDOW.Minutes()),
+					configs.AI_RATE_LIMIT_MAX_REQUESTS)
+				resetMessage = fmt.Sprintf("Bir sonraki isteği %d saniye sonra yapabilirsiniz", retryAfter)
+			}
+
+			// Detaylı rate limit mesajı
 			c.JSON(http.StatusTooManyRequests, gin.H{
 				"success": false,
 				"error":   "rate_limit_exceeded",
-				"message": "AI istek limiti aşıldı. Lütfen daha sonra tekrar deneyin.",
+				"message": fmt.Sprintf("AI %s limiti aşıldı. %s. %s.", limitType, limitMessage, resetMessage),
 				"data": gin.H{
-					"resetAt":    resetTime,
-					"retryAfter": retryAfter,
+					"resetAt":         resetTime,
+					"retryAfter":      retryAfter,
+					"limitType":       limitType,
+					"totalLimit":      configs.AI_RATE_LIMIT_MAX_REQUESTS,
+					"totalRemaining":  configs.AI_RATE_LIMIT_MAX_REQUESTS - rateInfo.RequestCount,
+					"minuteLimit":     configs.AI_RATE_LIMIT_REQ_PER_MINUTE,
+					"minuteRemaining": configs.AI_RATE_LIMIT_REQ_PER_MINUTE - minuteLimit,
+					"tokenLimit":      configs.AI_RATE_LIMIT_MAX_TOKENS,
+					"tokenRemaining":  configs.AI_RATE_LIMIT_MAX_TOKENS - rateInfo.TokensUsed,
+					"windowMinutes":   int(configs.AI_RATE_LIMIT_WINDOW.Minutes()),
+					"windowReset":     resetTime.Format("15:04:05"),
+					"minuteReset":     minuteResetTime.Format("15:04:05"),
+					"currentTime":     time.Now().Format("15:04:05"),
+					"explanation":     "AI servisleri maliyetli olduğundan, adil kullanım ve kaynak yönetimi için API istek limitlerini uyguluyoruz. Bu, tüm kullanıcıların servisten adil bir şekilde yararlanmasını sağlar.",
 				},
 			})
 			c.Abort()
 			return
 		}
-
 		m.incrementRequestCount(userID.String(), rateInfo)
-
 		c.Next()
-
 		if c.Writer.Status() == http.StatusOK {
-
 			tokensUsed := 1000
 			m.updateTokenUsage(userID.String(), tokensUsed)
 		}
