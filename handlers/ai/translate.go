@@ -22,7 +22,8 @@ func (h *Handler) TranslateBlogPost(c *gin.Context) {
 		request.HTML,
 		request.SourceLanguage,
 		request.TargetLanguage,
-		750, // Yaklaşık token sayısı (ayarlanabilir)
+		1000,
+		20,
 	)
 
 	if err != nil {
