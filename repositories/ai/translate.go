@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/sashabaranov/go-openai"
 )
@@ -14,21 +15,59 @@ func (r *Repository) TranslateHTML(ctx context.Context, html string, sourceLangu
 	// HTML'i güvenli parçalara böl
 	htmlChunks := splitHTMLSafely(html, maxTokensPerChunk)
 
-	// Her parçayı ayrı ayrı çevir
-	translatedChunks := make([]string, len(htmlChunks))
-	totalTokensUsed := 0
-
-	for i, chunk := range htmlChunks {
-		translatedChunk, tokensUsed, err := r.translateChunk(ctx, chunk, sourceLanguage, targetLanguage)
-		if err != nil {
-			return "", totalTokensUsed, fmt.Errorf("error translating chunk %d: %w", i, err)
-		}
-		translatedChunks[i] = translatedChunk
-		totalTokensUsed += tokensUsed
+	// Eğer HTML içeriği çok uzunsa (örn. 10+ chunk) erken dönüş yap
+	if len(htmlChunks) > 10 {
+		return "", 0, fmt.Errorf("HTML içeriği çok uzun: %d parça, maksimum 10 parça destekleniyor", len(htmlChunks))
 	}
+
+	// Her parça için sonuçları tutacak dilimler
+	translatedChunks := make([]string, len(htmlChunks))
+	errorChunks := make([]error, len(htmlChunks))
+	tokenCounts := make([]int, len(htmlChunks))
+
+	// WaitGroup ile paralel işlemleri takip et
+	var wg sync.WaitGroup
+	wg.Add(len(htmlChunks))
+
+	// Her parçayı paralel olarak çevir
+	for i, chunk := range htmlChunks {
+		go func(index int, htmlChunk string) {
+			defer wg.Done()
+
+			// Çevirme işlemini gerçekleştir
+			translatedChunk, tokensUsed, err := r.translateChunk(ctx, htmlChunk, sourceLanguage, targetLanguage)
+
+			// Sonuçları kaydet
+			translatedChunks[index] = translatedChunk
+			tokenCounts[index] = tokensUsed
+			errorChunks[index] = err
+		}(i, chunk)
+	}
+
+	// Tüm go routine'lerin tamamlanmasını bekle
+	wg.Wait()
+
+	// Hata kontrolü
+	for i, err := range errorChunks {
+		if err != nil {
+			return "", sum(tokenCounts), fmt.Errorf("chunk %d çevirme hatası: %w", i, err)
+		}
+	}
+
+	// Toplam token kullanımını hesapla
+	totalTokensUsed := sum(tokenCounts)
 
 	// Çevrilen parçaları birleştir
 	return strings.Join(translatedChunks, ""), totalTokensUsed, nil
+}
+
+// Bir dilim içindeki tüm sayıları toplar
+func sum(numbers []int) int {
+	total := 0
+	for _, n := range numbers {
+		total += n
+	}
+	return total
 }
 
 // translateChunk translates a single HTML chunk
