@@ -65,7 +65,6 @@ func main() {
 
 	blogStats := middlewares.NewBlogStatsMiddleware(br, blogCache, 1*time.Minute)
 	aiRateLimit := middlewares.NewAIRateLimitMiddleware(blogCache)
-	defer aiRateLimit.Stop()
 
 	// Handler Initialization
 	mh := handlers.NewHandler()
