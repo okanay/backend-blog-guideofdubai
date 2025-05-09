@@ -24,7 +24,8 @@ import (
 	R2Repository "github.com/okanay/backend-blog-guideofdubai/repositories/r2"
 	TokenRepository "github.com/okanay/backend-blog-guideofdubai/repositories/token"
 	UserRepository "github.com/okanay/backend-blog-guideofdubai/repositories/user"
-	cache "github.com/okanay/backend-blog-guideofdubai/services"
+	AIService "github.com/okanay/backend-blog-guideofdubai/services/ai"
+	"github.com/okanay/backend-blog-guideofdubai/services/cache"
 	"github.com/okanay/backend-blog-guideofdubai/types"
 )
 
@@ -62,13 +63,14 @@ func main() {
 
 	blogCache := cache.NewCache(30 * time.Minute)
 	aiRateLimit := middlewares.NewAIRateLimitMiddleware(blogCache)
+	ais := AIService.NewAIService(ar, br)
 
 	// Handler Initialization
 	mh := handlers.NewHandler()
 	uh := UserHandler.NewHandler(ur, tr)
 	bh := BlogHandler.NewHandler(br, blogCache)
 	ih := ImageHandler.NewHandler(ir, r2)
-	ah := AIHandler.NewHandler(ar)
+	ah := AIHandler.NewHandler(ar, br, ais)
 
 	// Router ve Middleware Yapılandırması
 	router := gin.Default()
@@ -140,6 +142,7 @@ func main() {
 	aiRoutes.Use(aiRateLimit.RateLimit())
 	{
 		aiRoutes.POST("/translate", ah.TranslateBlogPost)
+		aiRoutes.POST("/generate-metadata", ah.GenerateBlogMetadata)
 	}
 
 	adminAuth := auth.Group("/admin")

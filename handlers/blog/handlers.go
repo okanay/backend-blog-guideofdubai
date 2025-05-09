@@ -3,7 +3,7 @@ package BlogHandler
 
 import (
 	BlogRepository "github.com/okanay/backend-blog-guideofdubai/repositories/blog"
-	cache "github.com/okanay/backend-blog-guideofdubai/services"
+	"github.com/okanay/backend-blog-guideofdubai/services/cache"
 )
 
 type Handler struct {

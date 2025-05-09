@@ -14,3 +14,16 @@ type TranslateResponse struct {
 	SourceLanguage string `json:"sourceLanguage"`
 	TargetLanguage string `json:"targetLanguage"`
 }
+
+type GenerateMetadataRequest struct {
+	HTML     string `json:"html" binding:"required"`
+	Language string `json:"language" binding:"required"`
+}
+
+// GenerateMetadataResponse, AI tarafından oluşturulan metadata yanıtını içerir
+type GenerateMetadataResponse struct {
+	Title       string         `json:"title"`
+	Description string         `json:"description"`
+	Categories  []CategoryView `json:"categories"`
+	Tags        []TagView      `json:"tags"`
+}
