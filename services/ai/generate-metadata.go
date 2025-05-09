@@ -5,7 +5,6 @@ package AIService
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/google/uuid"
 	"github.com/okanay/backend-blog-guideofdubai/types"
@@ -17,7 +16,7 @@ func (s *AIService) GenerateMetadataWithTools(
 	html string,
 	language string,
 	userID uuid.UUID,
-) (*types.GenerateMetadataResponse, error) {
+) (*types.GenerateMetadataResponse, int, error) {
 
 	messages := []openai.ChatCompletionMessage{
 		{
@@ -53,6 +52,7 @@ func (s *AIService) GenerateMetadataWithTools(
 
 	var finalMetadata *types.GenerateMetadataResponse
 	maxIterations := 10
+	totalTokensUsed := 0
 
 	for range make([]struct{}, maxIterations) {
 		if finalMetadata != nil {
@@ -64,19 +64,20 @@ func (s *AIService) GenerateMetadataWithTools(
 			openai.ChatCompletionRequest{
 				Model:       "gpt-4.1-nano",
 				Messages:    messages,
-				Tools:       AITools,
+				Tools:       s.Tools,
 				ToolChoice:  "auto",
 				Temperature: 0.1,
 			},
 		)
 
 		if err != nil {
-			return nil, fmt.Errorf("OpenAI API error: %w", err)
+			return nil, totalTokensUsed, fmt.Errorf("OpenAI API error: %w", err)
 		}
 		if len(resp.Choices) == 0 {
-			return nil, fmt.Errorf("empty response from OpenAI API")
+			return nil, totalTokensUsed, fmt.Errorf("empty response from OpenAI API")
 		}
 
+		totalTokensUsed += resp.Usage.TotalTokens
 		assistantMessage := resp.Choices[0].Message
 		messages = append(messages, assistantMessage)
 
@@ -84,8 +85,6 @@ func (s *AIService) GenerateMetadataWithTools(
 			for _, toolCall := range assistantMessage.ToolCalls {
 				functionName := toolCall.Function.Name
 				functionArgs := toolCall.Function.Arguments
-
-				log.Printf("Calling function: %s", functionName)
 
 				functionResult, metadata, err := s.DispatchToolCall(ctx, functionName, functionArgs, userID)
 				if err != nil {
@@ -109,9 +108,5 @@ func (s *AIService) GenerateMetadataWithTools(
 		}
 	}
 
-	if finalMetadata == nil {
-		return nil, fmt.Errorf("failed to generate metadata: maximum iterations reached")
-	}
-
-	return finalMetadata, nil
+	return finalMetadata, totalTokensUsed, nil
 }

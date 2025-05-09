@@ -1,5 +1,3 @@
-// handlers/ai/generate_metadata.go
-
 package AIHandler
 
 import (
@@ -22,7 +20,7 @@ func (h *Handler) GenerateBlogMetadata(c *gin.Context) {
 	userID := c.MustGet("user_id").(uuid.UUID)
 
 	// AI Service'i kullanarak metadata oluştur
-	metadata, err := h.AIService.GenerateMetadataWithTools(
+	metadata, tokensUsed, err := h.AIService.GenerateMetadataWithTools(
 		c.Request.Context(),
 		request.HTML,
 		request.Language,
@@ -38,8 +36,15 @@ func (h *Handler) GenerateBlogMetadata(c *gin.Context) {
 		return
 	}
 
+	// Token kullanımını context'e kaydet (rate limiter için)
+	c.Set("tokens_used", tokensUsed)
+
+	// Global utils fonksiyonunu kullanarak maliyet bilgisini al
+	costInfo := utils.CalculateAICost(tokensUsed)
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data":    metadata,
+		"cost":    costInfo,
 	})
 }

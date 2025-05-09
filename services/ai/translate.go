@@ -1,4 +1,4 @@
-package AIRepository
+package AIService
 
 import (
 	"context"
@@ -11,9 +11,16 @@ import (
 
 // TranslateHTML translates the given HTML content to the specified target language
 // It safely splits long HTML content into chunks to avoid token limitations
-func (r *Repository) TranslateHTML(ctx context.Context, html string, sourceLanguage, targetLanguage string, maxTokensPerChunk int, chunkCount int) (string, int, error) {
+func (s *AIService) TranslateHTML(
+	ctx context.Context,
+	html string,
+	sourceLanguage string,
+	targetLanguage string,
+	maxTokensPerChunk int,
+	chunkCount int,
+) (string, int, error) {
 	// HTML'i güvenli parçalara böl
-	htmlChunks := splitHTMLSafely(html, maxTokensPerChunk)
+	htmlChunks := s.splitHTMLSafely(html, maxTokensPerChunk)
 
 	// Eğer HTML içeriği çok uzunsa (örn. 10+ chunk) erken dönüş yap
 	if len(htmlChunks) > chunkCount {
@@ -35,7 +42,7 @@ func (r *Repository) TranslateHTML(ctx context.Context, html string, sourceLangu
 			defer wg.Done()
 
 			// Çevirme işlemini gerçekleştir
-			translatedChunk, tokensUsed, err := r.translateChunk(ctx, htmlChunk, sourceLanguage, targetLanguage)
+			translatedChunk, tokensUsed, err := s.translateChunk(ctx, htmlChunk, sourceLanguage, targetLanguage)
 
 			// Sonuçları kaydet
 			translatedChunks[index] = translatedChunk
@@ -50,19 +57,19 @@ func (r *Repository) TranslateHTML(ctx context.Context, html string, sourceLangu
 	// Hata kontrolü
 	for i, err := range errorChunks {
 		if err != nil {
-			return "", sum(tokenCounts), fmt.Errorf("chunk %d çevirme hatası: %w", i, err)
+			return "", s.sum(tokenCounts), fmt.Errorf("chunk %d çevirme hatası: %w", i, err)
 		}
 	}
 
 	// Toplam token kullanımını hesapla
-	totalTokensUsed := sum(tokenCounts)
+	totalTokensUsed := s.sum(tokenCounts)
 
 	// Çevrilen parçaları birleştir
 	return strings.Join(translatedChunks, ""), totalTokensUsed, nil
 }
 
 // Bir dilim içindeki tüm sayıları toplar
-func sum(numbers []int) int {
+func (s *AIService) sum(numbers []int) int {
 	total := 0
 	for _, n := range numbers {
 		total += n
@@ -71,7 +78,7 @@ func sum(numbers []int) int {
 }
 
 // translateChunk translates a single HTML chunk
-func (r *Repository) translateChunk(ctx context.Context, chunk, sourceLanguage, targetLanguage string) (string, int, error) {
+func (s *AIService) translateChunk(ctx context.Context, chunk, sourceLanguage, targetLanguage string) (string, int, error) {
 	systemInstruction := fmt.Sprintf(`You are a professional %s-to-%s translator.
 Your task is to translate the provided HTML content.
 IMPORTANT: Translate ONLY the text content while preserving ALL HTML tags, attributes, and structure.
@@ -87,7 +94,7 @@ HTML Content:
 %s`, sourceLanguage, targetLanguage, chunk)
 
 	// Create the OpenAI API request
-	resp, err := r.client.CreateChatCompletion(
+	resp, err := s.AIRepo.CreateChatCompletion(
 		ctx,
 		openai.ChatCompletionRequest{
 			Model: "gpt-4.1-nano", // or another model
@@ -122,7 +129,7 @@ HTML Content:
 
 // splitHTMLSafely splits HTML content into smaller chunks while preserving HTML structure
 // It tries to split at safe points like closing tags to maintain valid HTML
-func splitHTMLSafely(html string, maxChunkSize int) []string {
+func (s *AIService) splitHTMLSafely(html string, maxChunkSize int) []string {
 	if len(html) <= maxChunkSize {
 		return []string{html}
 	}
@@ -138,7 +145,7 @@ func splitHTMLSafely(html string, maxChunkSize int) []string {
 		}
 
 		// Find a safe splitting point (closing tag)
-		safePoint := findSafeHTMLSplitPoint(remaining, chunkSize)
+		safePoint := s.findSafeHTMLSplitPoint(remaining, chunkSize)
 		if safePoint <= 0 {
 			// If no safe point found, use maxChunkSize as fallback
 			safePoint = maxChunkSize
@@ -153,7 +160,7 @@ func splitHTMLSafely(html string, maxChunkSize int) []string {
 
 // findSafeHTMLSplitPoint locates a suitable point to split HTML content
 // without breaking HTML structure, prioritizing closing tags
-func findSafeHTMLSplitPoint(html string, maxPos int) int {
+func (s *AIService) findSafeHTMLSplitPoint(html string, maxPos int) int {
 	if maxPos >= len(html) {
 		return len(html)
 	}
