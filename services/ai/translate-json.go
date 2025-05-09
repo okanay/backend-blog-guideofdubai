@@ -192,7 +192,7 @@ func (s *AIService) translateTextItemBatch(
 	resp, err := s.AIRepo.Client().CreateChatCompletion(
 		ctx,
 		openai.ChatCompletionRequest{
-			Model: "gpt-4.1-mini",
+			Model: "gpt-4.1-nano",
 			Messages: []openai.ChatCompletionMessage{
 				{
 					Role:    openai.ChatMessageRoleSystem,
