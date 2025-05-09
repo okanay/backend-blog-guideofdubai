@@ -92,29 +92,57 @@ func (s *AIService) translateChunk(
 	sourceLanguage string,
 	targetLanguage string,
 ) (string, int, error) {
-	// 1. Sistem talimatını oluştur
-	systemPrompt := fmt.Sprintf(`You are a professional %s-to-%s translator.
-Your task is to translate the provided HTML content.
-IMPORTANT: Translate ONLY the text content while preserving ALL HTML tags, attributes, and structure.
-Keep all links, formatting, and HTML elements intact.
-Your translation should be natural and fluent in the target language.`,
+	// 1. Sistem talimatını oluştur - daha detaylı ve kesin
+	systemPrompt := fmt.Sprintf(`You are a professional %s-to-%s translator specialized in blog posts with complex HTML structures.
+
+Your task is ABSOLUTELY CRITICAL: Translate a blog post's HTML content while preserving its EXACT structure.
+
+IMPORTANT RULES TO FOLLOW STRICTLY:
+1. TRANSLATE EVERY SINGLE TEXT NODE, no matter how small or where it appears in the HTML.
+2. NEVER omit, skip or remove ANY HTML elements, including complex ones like React components, carousels, or interactive elements.
+3. PRESERVE ALL HTML tags, attributes, class names, data attributes, and structure EXACTLY as they are.
+4. DO NOT modify any URLs, file paths, image sources, or technical attributes.
+5. Keep all formatting, styling, and functionality intact.
+6. Translate button texts, labels, alt texts, and any human-readable content.
+7. Your translation must be accurate and natural in %s.
+8. Remember: This is a blog editor's content being translated for readers - ALL text content must be translated!
+
+IF YOU SEE COMPLEX COMPONENTS (like Instagram embeds, React components, or carousels):
+- These are ESPECIALLY IMPORTANT to preserve completely
+- Translate ONLY the visible text within them
+- Keep all class names, attributes and structure exactly as they are
+- DO NOT skip or remove them thinking they are too complex
+
+This is a critical professional task - every single element must be preserved and all visible text translated!`,
 		sourceLanguage,
+		targetLanguage,
 		targetLanguage,
 	)
 
-	// 2. Kullanıcı mesajını oluştur
-	userPrompt := fmt.Sprintf(`Translate the following HTML content from %s to %s.
-Preserve ALL HTML tags and structure - translate ONLY the text content.
-Return the translated HTML as plain text without using markdown or code blocks.
+	// 2. Kullanıcı mesajını oluştur - daha spesifik ve direktif
+	userPrompt := fmt.Sprintf(`Translate the following blog post HTML content from %s to %s.
 
-HTML Content:
+CRITICAL INSTRUCTIONS:
+- This is a real blog post from an editor that needs EVERY TEXT ELEMENT translated
+- Preserve ALL HTML structure completely intact
+- Translate ALL text content, including:
+  * Headings, paragraphs, and lists
+  * Button texts and navigation labels
+  * Image alt texts and descriptions
+  * Small UI texts inside components
+  * Placeholders and interactive element texts
+  * ANY text that would be visible to a reader
+
+Return the complete translated HTML with ALL elements preserved. Do not omit or skip ANY section of the HTML no matter how complex it appears.
+
+HTML Content to translate:
 %s`,
 		sourceLanguage,
 		targetLanguage,
 		chunk,
 	)
 
-	// 3. OpenAI API isteğini oluştur ve gönder
+	// Geri kalan kod aynı...
 	resp, err := s.AIRepo.CreateChatCompletion(
 		ctx,
 		openai.ChatCompletionRequest{
@@ -133,7 +161,7 @@ HTML Content:
 		},
 	)
 
-	// 4. Hata kontrolü
+	// Hata kontrolü...
 	if err != nil {
 		return "", 0, fmt.Errorf("OpenAI API error: %w", err)
 	}
@@ -142,10 +170,10 @@ HTML Content:
 		return "", 0, fmt.Errorf("empty response from OpenAI API")
 	}
 
-	// 5. Toplam token kullanımını al
+	// Toplam token kullanımını al
 	totalTokens := resp.Usage.TotalTokens
 
-	// 6. Çevrilen içeriği ve token kullanımını döndür
+	// Çevrilen içeriği ve token kullanımını döndür
 	return resp.Choices[0].Message.Content, totalTokens, nil
 }
 

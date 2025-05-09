@@ -141,7 +141,7 @@ func main() {
 	aiRoutes := auth.Group("/ai")
 	aiRoutes.Use(aiRateLimit.RateLimit())
 	{
-		aiRoutes.POST("/translate", ah.TranslateBlogPost)
+		aiRoutes.POST("/translate", ah.TranslateBlogPostJSON)
 		aiRoutes.POST("/generate-metadata", ah.GenerateBlogMetadata)
 	}
 
