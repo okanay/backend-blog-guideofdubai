@@ -4,7 +4,9 @@ package AIService
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/google/uuid"
 	"github.com/okanay/backend-blog-guideofdubai/types"
@@ -21,28 +23,28 @@ func (s *AIService) GenerateMetadataWithTools(
 	messages := []openai.ChatCompletionMessage{
 		{
 			Role: openai.ChatMessageRoleSystem,
-			Content: fmt.Sprintf(`You are an AI assistant that generates SEO metadata for blogs. Your task is to analyze blog content and suggest appropriate title, description, categories and tags. Follow these guidelines:
+			Content: fmt.Sprintf(`
+			You are an AI assistant responsible for generating SEO metadata for blog posts.
 
-			- Generate an SEO-friendly title (max 60 chars)
-			- Generate a compelling description (max 160 chars)
-			- First retrieve all existing categories and tags
-			- For categories:
-			  * Select 1-2 most relevant categories
-			  * IMPORTANT: The "name" field should be the URL-friendly slug (lowercase with hyphens) and the "value" field should be the display name with proper capitalization
-			  * Example: {"name": "rent-a-car", "value": "Rent A Car"}
-			  * If an existing category is semantically similar to what you want to suggest, USE THE EXISTING ONE
-			  * Only create a new category if there is absolutely no existing category that matches the content
+			Your task is to analyze the provided blog content and generate:
+			- An SEO-friendly title (maximum 60 characters)
+			- An SEO-friendly description (maximum 160 characters)
 
-			- For tags:
-			  * Select 3-8 most relevant tags
-			  * IMPORTANT: The "name" field should be the URL-friendly slug (lowercase with hyphens) and the "value" field should be the display name with proper capitalization
-			  * Example: {"name": "tourist-attractions", "value": "Tourist Attractions"}
-			  * If an existing tag is semantically similar to what you want to suggest, USE THE EXISTING ONE
-			  * Only create a new tag if there is absolutely no existing tag that matches the concept
+			**IMPORTANT:**
+			- Both the title and description MUST be written in the following language: %s.
+			- Do NOT use any other language, even partially. All output must be in %s only.
+			- The title and description should be clear, compelling, and relevant to the blog content.
+			- The title should be concise and attractive for search engines.
+			- The description should summarize the content and encourage users to read the blog post.
 
-			- All metadata should be in %s language
-			- You must use the available tools in this order: 1) get categories and tags, 2) create new ones ONLY IF NECESSARY, 3) finalize metadata
-			- REMEMBER: Prefer using existing categories and tags whenever possible. Creating new ones should be a last resort.`, language),
+			**Output format:**
+			{
+			  "title": "<SEO-friendly title in %s>",
+			  "description": "<SEO-friendly description in %s>"
+			}
+
+			Now, analyze the following blog content and generate the title and description according to the instructions above.
+			`, language, language, language, language),
 		},
 		{
 			Role:    openai.ChatMessageRoleUser,
@@ -53,6 +55,27 @@ func (s *AIService) GenerateMetadataWithTools(
 	var finalMetadata *types.GenerateMetadataResponse
 	maxIterations := 10
 	totalTokensUsed := 0
+
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"title": map[string]any{
+				"type":        "string",
+				"description": "SEO-friendly title, maximum 120 characters",
+			},
+			"description": map[string]any{
+				"type":        "string",
+				"description": "SEO-friendly description, maximum 200 characters",
+			},
+		},
+		"required":             []string{"title", "description"},
+		"additionalProperties": false,
+	}
+
+	schemaBytes, err := json.Marshal(schema)
+	if err != nil {
+		return nil, totalTokensUsed, fmt.Errorf("Failed to convert schema to JSON: %v", err)
+	}
 
 	for range make([]struct{}, maxIterations) {
 		if finalMetadata != nil {
@@ -67,6 +90,15 @@ func (s *AIService) GenerateMetadataWithTools(
 				Tools:       s.Tools,
 				ToolChoice:  "auto",
 				Temperature: 0.1,
+				ResponseFormat: &openai.ChatCompletionResponseFormat{
+					Type: openai.ChatCompletionResponseFormatTypeJSONSchema,
+					JSONSchema: &openai.ChatCompletionResponseFormatJSONSchema{
+						Name:        "BlogMetadata",
+						Description: "SEO metadata for a blog post",
+						Schema:      json.RawMessage(schemaBytes),
+						Strict:      true,
+					},
+				},
 			},
 		)
 
@@ -85,6 +117,7 @@ func (s *AIService) GenerateMetadataWithTools(
 			for _, toolCall := range assistantMessage.ToolCalls {
 				functionName := toolCall.Function.Name
 				functionArgs := toolCall.Function.Arguments
+				log.Println("[AI] :: Calling This Function :", functionName)
 
 				functionResult, metadata, err := s.DispatchToolCall(ctx, functionName, functionArgs, userID)
 				if err != nil {

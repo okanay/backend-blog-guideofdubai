@@ -31,7 +31,7 @@ var AITools = []openai.Tool{
 		Type: openai.ToolTypeFunction,
 		Function: &openai.FunctionDefinition{
 			Name:        "create_category",
-			Description: "Create a new blog category",
+			Description: "Create a new blog category. You MUST call this if the suggested category does not exist in the list retrieved from get_all_categories.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -52,7 +52,7 @@ var AITools = []openai.Tool{
 		Type: openai.ToolTypeFunction,
 		Function: &openai.FunctionDefinition{
 			Name:        "create_tag",
-			Description: "Create a new blog tag",
+			Description: "Create a new blog tag. You MUST call this if the suggested tag does not exist in the list retrieved from get_all_tags.",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{

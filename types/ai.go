@@ -22,8 +22,8 @@ type GenerateMetadataRequest struct {
 
 // GenerateMetadataResponse, AI tarafından oluşturulan metadata yanıtını içerir
 type GenerateMetadataResponse struct {
-	Title       string         `json:"title"`
-	Description string         `json:"description"`
-	Categories  []CategoryView `json:"categories"`
-	Tags        []TagView      `json:"tags"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	// Categories  []CategoryView `json:"categories"`
+	// Tags        []TagView      `json:"tags"`
 }
