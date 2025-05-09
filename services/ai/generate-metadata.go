@@ -1,15 +1,12 @@
-// services/ai_service.go
-
 package AIService
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 
 	"github.com/google/uuid"
-	"github.com/okanay/backend-blog-guideofdubai/types"
+	types "github.com/okanay/backend-blog-guideofdubai/types"
 	"github.com/sashabaranov/go-openai"
 )
 
@@ -27,8 +24,8 @@ func (s *AIService) GenerateMetadataWithTools(
 			You are an AI assistant responsible for generating SEO metadata for blog posts.
 
 			Your task is to analyze the provided blog content and generate:
-			- An SEO-friendly title (maximum 60 characters)
-			- An SEO-friendly description (maximum 160 characters)
+			- An SEO-friendly title (maximum 120 characters)
+			- An SEO-friendly description (maximum 200 characters)
 
 			**IMPORTANT:**
 			- Both the title and description MUST be written in the following language: %s.
@@ -56,28 +53,13 @@ func (s *AIService) GenerateMetadataWithTools(
 	maxIterations := 10
 	totalTokensUsed := 0
 
-	schema := map[string]any{
-		"type": "object",
-		"properties": map[string]any{
-			"title": map[string]any{
-				"type":        "string",
-				"description": "SEO-friendly title, maximum 120 characters",
-			},
-			"description": map[string]any{
-				"type":        "string",
-				"description": "SEO-friendly description, maximum 200 characters",
-			},
-		},
-		"required":             []string{"title", "description"},
-		"additionalProperties": false,
-	}
-
-	schemaBytes, err := json.Marshal(schema)
+	schema, err := types.GetMetadataPromptSchema()
 	if err != nil {
-		return nil, totalTokensUsed, fmt.Errorf("Failed to convert schema to JSON: %v", err)
+		return nil, totalTokensUsed, err
 	}
 
-	for range make([]struct{}, maxIterations) {
+	for _ = range maxIterations {
+		// Eğer metadata bulunduysa döngüyü kır
 		if finalMetadata != nil {
 			break
 		}
@@ -95,7 +77,7 @@ func (s *AIService) GenerateMetadataWithTools(
 					JSONSchema: &openai.ChatCompletionResponseFormatJSONSchema{
 						Name:        "BlogMetadata",
 						Description: "SEO metadata for a blog post",
-						Schema:      json.RawMessage(schemaBytes),
+						Schema:      json.RawMessage(schema),
 						Strict:      true,
 					},
 				},
@@ -113,16 +95,17 @@ func (s *AIService) GenerateMetadataWithTools(
 		assistantMessage := resp.Choices[0].Message
 		messages = append(messages, assistantMessage)
 
+		// Tool çağrısı varsa
 		if assistantMessage.ToolCalls != nil && len(assistantMessage.ToolCalls) > 0 {
 			for _, toolCall := range assistantMessage.ToolCalls {
 				functionName := toolCall.Function.Name
 				functionArgs := toolCall.Function.Arguments
-				log.Println("[AI] :: Calling This Function :", functionName)
 
 				functionResult, metadata, err := s.DispatchToolCall(ctx, functionName, functionArgs, userID)
 				if err != nil {
 					functionResult = fmt.Sprintf(`{"error": "%s"}`, err.Error())
 				}
+				// Eğer metadata döndüyse, finalMetadata'yı set et
 				if metadata != nil {
 					finalMetadata = metadata
 				}
@@ -134,11 +117,17 @@ func (s *AIService) GenerateMetadataWithTools(
 				})
 			}
 		} else if assistantMessage.Content != "" {
+			// Eğer tool çağrısı yoksa ve hala content varsa, modelin tool çağrısı yapmasını teşvik et
 			messages = append(messages, openai.ChatCompletionMessage{
 				Role:    openai.ChatMessageRoleUser,
 				Content: "Please use the tools to complete the metadata generation. Call finalize_metadata when you're ready to submit the final metadata.",
 			})
 		}
+	}
+
+	// Eğer finalMetadata hala nil ise, hata döndür
+	if finalMetadata == nil {
+		return nil, totalTokensUsed, fmt.Errorf("Failed to generate metadata after %d iterations", maxIterations)
 	}
 
 	return finalMetadata, totalTokensUsed, nil

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/google/uuid"
-	"github.com/okanay/backend-blog-guideofdubai/types"
+	types "github.com/okanay/backend-blog-guideofdubai/types"
 )
 
 func (s *AIService) DispatchToolCall(

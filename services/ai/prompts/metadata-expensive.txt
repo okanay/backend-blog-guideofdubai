@@ -37,7 +37,7 @@ You **must** strictly follow the steps below, using the available tools for each
 - You **must** use the tools in the order described above.
 - **Do not** call `finalize_metadata` until all categories and tags exist in the database.
 - If you skip any step or do not use the tools as required, the process will be considered failed.
-- All metadata must be generated in the requested language: `%s`.
+- All metadata must be generated in the requested language: %s.
 
 ---
 

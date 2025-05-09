@@ -13,17 +13,12 @@ type TranslateResponse struct {
 	TranslatedHTML string `json:"translatedHTML"`
 	SourceLanguage string `json:"sourceLanguage"`
 	TargetLanguage string `json:"targetLanguage"`
+	TokensUsed     int    `json:"tokensUsed"`
 }
 
-type GenerateMetadataRequest struct {
-	HTML     string `json:"html" binding:"required"`
-	Language string `json:"language" binding:"required"`
-}
-
-// GenerateMetadataResponse, AI tarafından oluşturulan metadata yanıtını içerir
-type GenerateMetadataResponse struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	// Categories  []CategoryView `json:"categories"`
-	// Tags        []TagView      `json:"tags"`
+// TranslateChunkResult, bir çeviri parçasının sonucunu temsil eder
+type TranslateChunkResult struct {
+	Content    string
+	TokensUsed int
+	Error      error
 }
