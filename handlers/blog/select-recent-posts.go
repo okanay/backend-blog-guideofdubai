@@ -2,6 +2,7 @@ package BlogHandler
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/okanay/backend-blog-guideofdubai/types"
@@ -20,12 +21,18 @@ func (h *Handler) SelectRecentPosts(c *gin.Context) {
 		return
 	}
 
+	limitStr := c.DefaultQuery("limit", "4")
+	parsedLimit, _ := strconv.Atoi(limitStr)
+
+	language := c.DefaultQuery("language", "en")
+
 	// Cache'te yoksa veritabanından getir
 	queryOptions := types.BlogCardQueryOptions{
 		Status:        types.BlogStatusPublished,
-		Limit:         10,
+		Limit:         parsedLimit,
 		SortBy:        "created_at",
 		SortDirection: types.SortDesc,
+		Language:      language,
 	}
 
 	blogs, err := h.BlogRepository.SelectBlogCards(queryOptions)

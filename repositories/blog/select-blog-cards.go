@@ -36,7 +36,15 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
                 FROM blog_categories bc2
                 JOIN categories c ON bc2.category_name = c.name
                 WHERE bc2.blog_id = bp.id
-            ) AS categories
+            ) AS categories,
+
+            -- Etiketleri JSON dizisi olarak al
+            (
+                SELECT COALESCE(json_agg(json_build_object('name', t.name, 'value', t.value)), '[]'::json)
+                FROM blog_tags bt
+                JOIN tags t ON bt.tag_name = t.name
+                WHERE bt.blog_id = bp.id
+            ) AS tags
         FROM blog_posts bp
         LEFT JOIN blog_content bc ON bp.id = bc.id
         LEFT JOIN blog_featured bf ON bp.id = bf.blog_id AND bf.language = bp.language
@@ -198,7 +206,7 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 	for rows.Next() {
 		var card types.BlogPostCardView
 		var content types.ContentCardView
-		var categoriesJSON []byte
+		var categoriesJSON, tagsJSON []byte
 
 		// Scan sırası SQL SELECT sırasıyla aynı olmalı
 		err := rows.Scan(
@@ -215,6 +223,7 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 			&content.ReadTime,
 			&card.Featured,
 			&categoriesJSON,
+			&tagsJSON,
 		)
 
 		if err != nil {
@@ -227,6 +236,12 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 		var categories []types.CategoryView
 		if err := json.Unmarshal(categoriesJSON, &categories); err == nil {
 			card.Categories = categories
+		}
+
+		// JSON etiketleri çöz
+		var tags []types.TagView
+		if err := json.Unmarshal(tagsJSON, &tags); err == nil {
+			card.Tags = tags
 		}
 
 		blogCards = append(blogCards, card)

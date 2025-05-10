@@ -95,10 +95,7 @@ func (h *Handler) UpdateFeaturedOrdering(c *gin.Context) {
 
 // GetFeaturedBlogs belirli bir dil için featured blogları getirir
 func (h *Handler) GetFeaturedBlogs(c *gin.Context) {
-	language := c.Query("language")
-	if language == "" {
-		language = "en" // Varsayılan dil
-	}
+	language := c.DefaultQuery("language", "en")
 
 	// Cache'den kontrol et
 	blogs, exists := h.BlogCache.GetFeaturedPostsByLanguage(language)

@@ -117,6 +117,7 @@ type BlogPostCardView struct {
 	Status     BlogStatus      `json:"status"`
 	Content    ContentCardView `json:"content"`
 	Categories []CategoryView  `json:"categories,omitempty"`
+	Tags       []TagView       `json:"tags,omitempty"` // Tags alanını ekledik
 	CreatedAt  time.Time       `json:"createdAt"`
 	UpdatedAt  time.Time       `json:"updatedAt"`
 }

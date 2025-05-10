@@ -2,6 +2,7 @@ package BlogRepository
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -190,7 +191,24 @@ func (r *Repository) GetFeaturedBlogs(language string) ([]types.BlogPostCardView
 			bc.image,
 			bc.read_time,
 			true as featured,
-			bf.position
+			bf.position,
+
+			-- Kategorileri JSON dizisi olarak al
+			(
+				SELECT COALESCE(json_agg(json_build_object('name', c.name, 'value', c.value)), '[]'::json)
+				FROM blog_categories bc2
+				JOIN categories c ON bc2.category_name = c.name
+				WHERE bc2.blog_id = bp.id
+			) AS categories,
+
+			-- Etiketleri JSON dizisi olarak al
+			(
+				SELECT COALESCE(json_agg(json_build_object('name', t.name, 'value', t.value)), '[]'::json)
+				FROM blog_tags bt
+				JOIN tags t ON bt.tag_name = t.name
+				WHERE bt.blog_id = bp.id
+			) AS tags
+
 		FROM blog_posts bp
 		JOIN blog_content bc ON bp.id = bc.id
 		JOIN blog_featured bf ON bp.id = bf.blog_id
@@ -210,6 +228,7 @@ func (r *Repository) GetFeaturedBlogs(language string) ([]types.BlogPostCardView
 		var blog types.BlogPostCardView
 		var content types.ContentCardView
 		var position int // Sadece sıralama için kullanılacak, response'a dahil edilmeyecek
+		var categoriesJSON, tagsJSON []byte
 
 		err := rows.Scan(
 			&blog.ID,
@@ -225,6 +244,8 @@ func (r *Repository) GetFeaturedBlogs(language string) ([]types.BlogPostCardView
 			&content.ReadTime,
 			&blog.Featured,
 			&position,
+			&categoriesJSON,
+			&tagsJSON,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan blog: %w", err)
@@ -232,13 +253,16 @@ func (r *Repository) GetFeaturedBlogs(language string) ([]types.BlogPostCardView
 
 		blog.Content = content
 
-		// Kategorileri ekle
-		blogUUID, err := uuid.Parse(blog.ID)
-		if err == nil {
-			categories, err := r.SelectBlogCategories(blogUUID)
-			if err == nil && len(categories) > 0 {
-				blog.Categories = categories
-			}
+		// Kategorileri JSON'dan çöz
+		var categories []types.CategoryView
+		if err := json.Unmarshal(categoriesJSON, &categories); err == nil {
+			blog.Categories = categories
+		}
+
+		// Etiketleri JSON'dan çöz
+		var tags []types.TagView
+		if err := json.Unmarshal(tagsJSON, &tags); err == nil {
+			blog.Tags = tags
 		}
 
 		blogs = append(blogs, blog)
