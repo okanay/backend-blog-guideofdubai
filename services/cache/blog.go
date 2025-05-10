@@ -380,6 +380,46 @@ func (s *BlogCacheService) SaveSitemap(sitemap []gin.H) error {
 	return nil
 }
 
+// GetMostViewedPosts en çok görüntülenen blog yazılarını cache'den getirir
+func (s *BlogCacheService) GetMostViewedPosts(language string, period string) ([]types.BlogPostCardView, bool) {
+	cacheKey := fmt.Sprintf("most_viewed_posts:%s:%s", language, period)
+
+	cachedData, exists := s.cache.Get(cacheKey)
+	if !exists {
+		return nil, false
+	}
+
+	var blogs []types.BlogPostCardView
+	if err := json.Unmarshal(cachedData, &blogs); err != nil {
+		return nil, false
+	}
+
+	return blogs, true
+}
+
+// SaveMostViewedPosts en çok görüntülenen blog yazılarını cache'e kaydeder
+func (s *BlogCacheService) SaveMostViewedPosts(language string, period string, blogs []types.BlogPostCardView) error {
+	cacheKey := fmt.Sprintf("most_viewed_posts:%s:%s", language, period)
+
+	jsonData, err := json.Marshal(blogs)
+	if err != nil {
+		return err
+	}
+
+	s.cache.Set(cacheKey, jsonData)
+	return nil
+}
+
+// İsteğe bağlı: Cache'i geçersiz kılma fonksiyonu
+func (s *BlogCacheService) InvalidateMostViewedPosts() {
+	s.cache.ClearPrefix("most_viewed_posts:")
+}
+
+// Bir görüntüleme eklendiğinde popüler postları güncelleme (opsiyonel çağrılabilir)
+func (s *BlogCacheService) InvalidateMostViewedPostsOnView() {
+	s.cache.ClearPrefix("most_viewed_posts:")
+}
+
 // Helper metotlar
 func (s *BlogCacheService) getBlogFromCache(cacheKey string) (*types.BlogPostView, bool) {
 	cachedData, exists := s.cache.Get(cacheKey)
