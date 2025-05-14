@@ -70,7 +70,7 @@ func (s *AIService) TranslateBlogPostJSON(
 	}
 
 	// Metinleri batchlere ayır
-	batchSize := 20
+	batchSize := 8
 	batches := chunkTextItems(items, batchSize)
 
 	// Her batch'i paralel olarak çevir
@@ -309,7 +309,6 @@ func (s *AIService) translateTextItemBatch(
 		return nil, 0, 0, fmt.Errorf("empty response from OpenAI API")
 	}
 	content := strings.TrimSpace(resp.Choices[0].Message.Content)
-	fmt.Printf("📝 OpenAI response (batch %d):\n%s\n", batchIndex, content)
 
 	var respObj TextItemTranslationResponse
 	if err := json.Unmarshal([]byte(content), &respObj); err != nil {
