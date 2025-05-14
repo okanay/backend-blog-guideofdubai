@@ -363,39 +363,54 @@ func chunkTextItems(items []TextItem, size int) [][]TextItem {
 }
 
 // Path'e göre JSON içindeki değeri günceller
+// Path'e göre JSON içindeki değeri günceller, yol bulunamazsa hata yerine log bırakır
 func setValueAtPath(obj any, path []string, value string) error {
 	if len(path) == 0 {
 		return fmt.Errorf("empty path")
 	}
+
 	current := obj
 	for i, key := range path {
 		isLast := i == len(path)-1
+
 		switch v := current.(type) {
 		case map[string]any:
 			if isLast {
 				v[key] = value
 				return nil
 			}
+
 			next, ok := v[key]
 			if !ok {
-				return fmt.Errorf("key not found: %s", key)
+				// Anahtar bulunamadı - hata vermek yerine durumu loglayıp devam et
+				fmt.Printf("Warning: Path %v could not be fully traversed, key %s not found. Skipping this translation.\n", path, key)
+				return nil // Hata değil, null dönüyor böylece işlem devam eder
 			}
 			current = next
+
 		case []any:
 			idx, err := strconv.Atoi(key)
 			if err != nil || idx < 0 || idx >= len(v) {
-				return fmt.Errorf("invalid array index: %s", key)
+				// Geçersiz dizi indeksi - hata vermek yerine durumu loglayıp devam et
+				fmt.Printf("Warning: Path %v could not be fully traversed, invalid array index: %s. Skipping this translation.\n", path, key)
+				return nil
 			}
+
 			if isLast {
 				v[idx] = value
 				return nil
 			}
 			current = v[idx]
+
 		default:
-			return fmt.Errorf("unexpected type at %v", path[:i+1])
+			// Beklenmeyen tip - hata vermek yerine durumu loglayıp devam et
+			fmt.Printf("Warning: Path %v could not be fully traversed, unexpected type at %v. Skipping this translation.\n", path, path[:i+1])
+			return nil
 		}
 	}
-	return fmt.Errorf("could not set value at path: %v", path)
+
+	fmt.Printf("Warning: Could not set value at path: %v. Skipping this translation.\n", path)
+	return nil
 }
 
 // Çeviri isteği prompt'unu oluşturur
