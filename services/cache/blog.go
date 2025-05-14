@@ -129,25 +129,46 @@ func (s *BlogCacheService) SaveBlogAndAlternativesBySlug(slug string, mainBlog *
 	return nil
 }
 
-func (s *BlogCacheService) GetBlogCards(queryOptions types.BlogCardQueryOptions) ([]types.BlogPostCardView, bool) {
+// GetBlogCards blog kartlarını cache'den getirir (revize edilmiş)
+func (s *BlogCacheService) GetBlogCards(queryOptions types.BlogCardQueryOptions) ([]types.BlogPostCardView, int, bool) {
 	cacheKey := s.GenerateBlogCardsCacheKey(queryOptions)
 	cachedData, exists := s.cache.Get(cacheKey)
 	if !exists {
-		return nil, false
+		return nil, 0, false
 	}
-	var blogs []types.BlogPostCardView
-	if err := json.Unmarshal(cachedData, &blogs); err != nil {
-		return nil, false
+
+	// Cache'te hem blogları hem de total sayıyı tutan yapı
+	type cachedBlogResult struct {
+		Blogs []types.BlogPostCardView `json:"blogs"`
+		Total int                      `json:"total"`
 	}
-	return blogs, true
+
+	var result cachedBlogResult
+	if err := json.Unmarshal(cachedData, &result); err != nil {
+		return nil, 0, false
+	}
+
+	return result.Blogs, result.Total, true
 }
 
-func (s *BlogCacheService) SaveBlogCards(queryOptions types.BlogCardQueryOptions, blogs []types.BlogPostCardView) error {
+// SaveBlogCards blog kartlarını cache'e kaydeder (revize edilmiş)
+func (s *BlogCacheService) SaveBlogCards(queryOptions types.BlogCardQueryOptions, blogs []types.BlogPostCardView, total int) error {
 	cacheKey := s.GenerateBlogCardsCacheKey(queryOptions)
-	jsonData, err := json.Marshal(blogs)
+
+	// Hem blogları hem de total sayıyı saklayan yapı
+	data := struct {
+		Blogs []types.BlogPostCardView `json:"blogs"`
+		Total int                      `json:"total"`
+	}{
+		Blogs: blogs,
+		Total: total,
+	}
+
+	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return err
 	}
+
 	s.cache.Set(cacheKey, jsonData)
 	return nil
 }

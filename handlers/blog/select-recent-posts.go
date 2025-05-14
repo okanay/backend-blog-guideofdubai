@@ -34,8 +34,8 @@ func (h *Handler) SelectRecentPosts(c *gin.Context) {
 		SortDirection: types.SortDesc,
 		Language:      language,
 	}
+	blogs, _, err := h.BlogRepository.SelectBlogCards(queryOptions)
 
-	blogs, err := h.BlogRepository.SelectBlogCards(queryOptions)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,

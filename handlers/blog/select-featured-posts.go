@@ -29,7 +29,7 @@ func (h *Handler) SelectFeaturedPosts(c *gin.Context) {
 		SortDirection: types.SortDesc,
 	}
 
-	blogs, err := h.BlogRepository.SelectBlogCards(queryOptions)
+	blogs, _, err := h.BlogRepository.SelectBlogCards(queryOptions)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,

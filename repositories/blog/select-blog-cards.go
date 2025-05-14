@@ -13,10 +13,17 @@ import (
 	"github.com/okanay/backend-blog-guideofdubai/utils"
 )
 
-func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]types.BlogPostCardView, error) {
+func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]types.BlogPostCardView, int, error) {
 	defer utils.TimeTrack(time.Now(), "Blog -> Select Blog Cards")
 
-	query := `
+	// 1. Önce toplam sayı için COUNT sorgusu oluşturalım
+	countQuery := `
+		SELECT COUNT(DISTINCT bp.id)
+		FROM blog_posts bp
+	`
+
+	// 2. Ana veri sorgusu (mevcut kodunuzdan)
+	dataQuery := `
         SELECT
             bp.id,
             bp.group_id,
@@ -51,6 +58,7 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
         LEFT JOIN blog_featured bf ON bp.id = bf.blog_id AND bf.language = bp.language
     `
 
+	// Her iki sorgu için filtreleri ve join'leri hazırla
 	var joins []string
 	var conditions []string
 	var params []any
@@ -75,6 +83,7 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 
 	// Title filtresi
 	if options.Title != "" {
+		countQuery += " LEFT JOIN blog_content bc ON bp.id = bc.id"
 		cleanSearchTerm := cleanSearchQuery(options.Title)
 		searchWords := strings.Split(cleanSearchTerm, " ")
 
@@ -140,7 +149,7 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 
 	// Tag filtresi
 	if options.TagValue != "" {
-		if !strings.Contains(query, "JOIN blog_tags") {
+		if !strings.Contains(dataQuery, "JOIN blog_tags") {
 			joins = append(joins, "JOIN blog_tags bt_rel ON bp.id = bt_rel.blog_id")
 			joins = append(joins, "JOIN tags t ON bt_rel.tag_name = t.name")
 		}
@@ -161,24 +170,56 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 		paramCounter++
 	}
 
-	// Join'leri sorguya ekle
+	// 3. Count sorgusu için join'leri ekle
 	if len(joins) > 0 {
+		// blog_content join'i COUNT sorgusu için de gerekli olabilir (title ve description filtresi için)
+		if options.Title != "" && !strings.Contains(countQuery, "JOIN blog_content") {
+			countQuery += " LEFT JOIN blog_content bc ON bp.id = bc.id"
+		}
+
+		// Featured filtresi için count sorgusuna da bu join'i ekle
+		if options.Featured && !strings.Contains(countQuery, "LEFT JOIN blog_featured") {
+			countQuery += " LEFT JOIN blog_featured bf ON bp.id = bf.blog_id AND bf.language = bp.language"
+		}
+
 		for _, join := range joins {
-			query += " " + join
+			countQuery += " " + join
 		}
 	}
 
-	// WHERE koşullarını sorguya ekle
+	// 4. Ana sorgu için join'leri ekle
+	if len(joins) > 0 {
+		for _, join := range joins {
+			dataQuery += " " + join
+		}
+	}
+
+	// 5. Her iki sorguya da WHERE koşullarını ekle
 	if len(conditions) > 0 {
-		query += " WHERE " + strings.Join(conditions, " AND ")
+		whereClause := " WHERE " + strings.Join(conditions, " AND ")
+		countQuery += whereClause
+		dataQuery += whereClause
 	}
 
-	// Kategori ve etiket birden fazla eşleşme gerektiriyorsa, HAVING ile grup filtrelemesi
+	// 6. Kategori ve etiket birden fazla eşleşme gerektiriyorsa, HAVING ile grup filtrelemesi
 	if options.CategoryValue != "" && options.TagValue != "" {
-		query += " GROUP BY bp.id, bp.group_id, bp.slug, bp.language, bp.status, bp.created_at, bp.updated_at, bc.title, bc.description, bc.image, bc.read_time, bf.blog_id"
+		groupByClause := " GROUP BY bp.id, bp.group_id, bp.slug, bp.language, bp.status, bp.created_at, bp.updated_at, bc.title, bc.description, bc.image, bc.read_time, bf.blog_id"
+		countQuery += groupByClause
+		dataQuery += groupByClause
 	}
 
-	// Sıralama seçenekleri
+	// 7. Toplam kayıt sayısını çek
+	// COUNT sorgusu için parametrelerin kopyası (limit ve offset olmadan)
+	countParams := make([]any, len(params))
+	copy(countParams, params)
+
+	var total int
+	err := r.db.QueryRow(countQuery, countParams...).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("count query failed: %w", err)
+	}
+
+	// 8. Sıralama seçenekleri (sadece ana sorgu için)
 	if options.SortBy != "" {
 		allowedSortColumns := map[string]bool{
 			"created_at": true,
@@ -195,8 +236,8 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 			} else if options.SortBy == "title" {
 				sortColumn = "bc." + options.SortBy
 			} else if options.SortBy == "views" || options.SortBy == "likes" {
-				if !strings.Contains(query, "JOIN blog_stats") {
-					query = strings.Replace(query, "LEFT JOIN blog_content bc ON bp.id = bc.id",
+				if !strings.Contains(dataQuery, "JOIN blog_stats") {
+					dataQuery = strings.Replace(dataQuery, "LEFT JOIN blog_content bc ON bp.id = bc.id",
 						"LEFT JOIN blog_content bc ON bp.id = bc.id LEFT JOIN blog_stats bs ON bp.id = bs.id", 1)
 				}
 				sortColumn = "bs." + options.SortBy
@@ -208,27 +249,27 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 			sortDirection = "ASC"
 		}
 
-		query += fmt.Sprintf(" ORDER BY %s %s", sortColumn, sortDirection)
+		dataQuery += fmt.Sprintf(" ORDER BY %s %s", sortColumn, sortDirection)
 	} else {
-		query += " ORDER BY bp.created_at DESC"
+		dataQuery += " ORDER BY bp.created_at DESC"
 	}
 
-	// Limit ve Offset
+	// 9. Limit ve Offset (sadece ana sorgu için)
 	if options.Limit > 0 {
-		query += fmt.Sprintf(" LIMIT $%d", paramCounter)
+		dataQuery += fmt.Sprintf(" LIMIT $%d", paramCounter)
 		params = append(params, options.Limit)
 		paramCounter++
 
 		if options.Offset > 0 {
-			query += fmt.Sprintf(" OFFSET $%d", paramCounter)
+			dataQuery += fmt.Sprintf(" OFFSET $%d", paramCounter)
 			params = append(params, options.Offset)
 		}
 	}
 
-	// Sorguyu çalıştır
-	rows, err := r.db.Query(query, params...)
+	// 10. Ana sorguyu çalıştır
+	rows, err := r.db.Query(dataQuery, params...)
 	if err != nil {
-		return nil, fmt.Errorf("blog card query failed: %w", err)
+		return nil, 0, fmt.Errorf("blog card query failed: %w", err)
 	}
 	defer rows.Close()
 
@@ -258,7 +299,7 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 		)
 
 		if err != nil {
-			return nil, fmt.Errorf("error scanning blog card row: %w", err)
+			return nil, 0, fmt.Errorf("error scanning blog card row: %w", err)
 		}
 
 		card.Content = content
@@ -279,10 +320,10 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating through blog cards: %w", err)
+		return nil, 0, fmt.Errorf("error iterating through blog cards: %w", err)
 	}
 
-	return blogCards, nil
+	return blogCards, total, nil
 }
 
 func cleanSearchQuery(input string) string {

@@ -28,7 +28,8 @@ func (h *Handler) SelectBlogSitemap(c *gin.Context) {
 		Limit:         99999, // Tüm blog yazılarını almak için yüksek limit
 	}
 
-	blogs, err := h.BlogRepository.SelectBlogCards(queryOptions)
+	blogs, _, err := h.BlogRepository.SelectBlogCards(queryOptions)
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,

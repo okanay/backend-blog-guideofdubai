@@ -87,19 +87,20 @@ func (h *Handler) SelectBlogCards(c *gin.Context) {
 	}
 
 	// Cache'den blog kartlarını kontrol et
-	blogs, exists := h.BlogCache.GetBlogCards(queryOptions)
+	blogs, total, exists := h.BlogCache.GetBlogCards(queryOptions)
 	if exists {
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
 			"blogs":   blogs,
 			"count":   len(blogs),
+			"total":   total, // Toplam kayıt sayısı (filtreleme sonrası)
 			"cached":  true,
 		})
 		return
 	}
 
 	// Repository fonksiyonunu çağır
-	blogs, err := h.BlogRepository.SelectBlogCards(queryOptions)
+	blogs, total, err := h.BlogRepository.SelectBlogCards(queryOptions)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
@@ -109,13 +110,14 @@ func (h *Handler) SelectBlogCards(c *gin.Context) {
 	}
 
 	// Blog kartlarını cache'e kaydet
-	h.BlogCache.SaveBlogCards(queryOptions, blogs)
+	h.BlogCache.SaveBlogCards(queryOptions, blogs, total)
 
 	// Sonuçları ve toplam sayısını döndür
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"blogs":   blogs,
 		"count":   len(blogs),
+		"total":   total, // Toplam kayıt sayısı (filtreleme sonrası)
 		"cached":  false,
 	})
 }
