@@ -150,16 +150,6 @@ func traverseJSON(data any, path []string, items *[]TextItem, index *int) {
 				if translatable.Type == typeVal {
 					// Bu tip için belirtilen tüm alanları kontrol et
 					for _, fieldPath := range translatable.Paths {
-						// fieldPath'in ilk parçasını al
-						parts := strings.Split(fieldPath, ".")
-						if len(parts) == 0 {
-							continue
-						}
-						firstKey := parts[0]
-						val, exists := v[firstKey]
-						if !exists || val == "" {
-							continue
-						}
 						extractPathValue(v, fieldPath, path, items, index)
 					}
 				}
@@ -247,7 +237,18 @@ func extractPathRecursive(obj any, parts []string, partIndex int, basePath []str
 
 // Son değeri çıkarır (metin ise çeviri listesine ekler)
 func extractFinalValue(val any, path []string, items *[]TextItem, index *int) {
-	if str, ok := val.(string); ok && strings.TrimSpace(str) != "" {
+	// Null kontrolü ekle
+	if val == nil {
+		return
+	}
+
+	// String değeri kontrol et
+	if str, ok := val.(string); ok {
+		// Boş string kontrolü
+		if strings.TrimSpace(str) == "" {
+			return // Boş stringler için işlem yapma
+		}
+
 		trimmed, startsWithSpace, endsWithSpace := analyzeSpaces(str)
 		*items = append(*items, TextItem{
 			Index:           *index,
