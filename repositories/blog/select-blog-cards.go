@@ -3,6 +3,7 @@ package BlogRepository
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -74,9 +75,39 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 
 	// Title filtresi
 	if options.Title != "" {
-		conditions = append(conditions, fmt.Sprintf("bc.title ILIKE $%d", paramCounter))
-		params = append(params, "%"+options.Title+"%")
-		paramCounter++
+		cleanSearchTerm := cleanSearchQuery(options.Title)
+		searchWords := strings.Split(cleanSearchTerm, " ")
+
+		var titleConditions []string
+		var descConditions []string
+
+		for _, word := range searchWords {
+			if len(word) >= 3 { // Çok kısa kelimeleri atla
+				// Başlık için koşul
+				titleConditions = append(titleConditions,
+					fmt.Sprintf("lower(bc.title) LIKE $%d", paramCounter))
+				params = append(params, "%"+word+"%")
+				paramCounter++
+
+				// Açıklama için koşul
+				descConditions = append(descConditions,
+					fmt.Sprintf("lower(bc.description) LIKE $%d", paramCounter))
+				params = append(params, "%"+word+"%")
+				paramCounter++
+			}
+		}
+
+		// Sorgu koşullarını ekle
+		var orConditions []string
+		if len(titleConditions) > 0 {
+			orConditions = append(orConditions, "("+strings.Join(titleConditions, " AND ")+")")
+		}
+		if len(descConditions) > 0 {
+			orConditions = append(orConditions, "("+strings.Join(descConditions, " AND ")+")")
+		}
+		if len(orConditions) > 0 {
+			conditions = append(conditions, "("+strings.Join(orConditions, " OR ")+")")
+		}
 	}
 
 	// Language filtresi
@@ -252,4 +283,19 @@ func (r *Repository) SelectBlogCards(options types.BlogCardQueryOptions) ([]type
 	}
 
 	return blogCards, nil
+}
+
+func cleanSearchQuery(input string) string {
+	// Tüm özel karakterleri kaldır
+	re := regexp.MustCompile(`[^a-zA-Z0-9\s]`)
+	cleaned := re.ReplaceAllString(input, " ")
+
+	// Küçük harfe çevir
+	cleaned = strings.ToLower(cleaned)
+
+	// Çoklu boşlukları tek boşluğa dönüştür
+	re = regexp.MustCompile(`\s+`)
+	cleaned = re.ReplaceAllString(cleaned, " ")
+
+	return strings.TrimSpace(cleaned)
 }
