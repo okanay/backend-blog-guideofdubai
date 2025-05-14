@@ -150,6 +150,16 @@ func traverseJSON(data any, path []string, items *[]TextItem, index *int) {
 				if translatable.Type == typeVal {
 					// Bu tip için belirtilen tüm alanları kontrol et
 					for _, fieldPath := range translatable.Paths {
+						// fieldPath'in ilk parçasını al
+						parts := strings.Split(fieldPath, ".")
+						if len(parts) == 0 {
+							continue
+						}
+						firstKey := parts[0]
+						val, exists := v[firstKey]
+						if !exists || val == "" {
+							continue
+						}
 						extractPathValue(v, fieldPath, path, items, index)
 					}
 				}
