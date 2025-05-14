@@ -70,7 +70,7 @@ func (s *AIService) TranslateBlogPostJSON(
 	}
 
 	// Metinleri batchlere ayır
-	batchSize := 10
+	batchSize := 20
 	batches := chunkTextItems(items, batchSize)
 
 	// Her batch'i paralel olarak çevir
