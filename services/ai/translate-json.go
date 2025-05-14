@@ -362,7 +362,6 @@ func chunkTextItems(items []TextItem, size int) [][]TextItem {
 	return batches
 }
 
-// Path'e göre JSON içindeki değeri günceller
 // Path'e göre JSON içindeki değeri günceller, yol bulunamazsa hata yerine log bırakır
 func setValueAtPath(obj any, path []string, value string) error {
 	if len(path) == 0 {
