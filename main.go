@@ -70,6 +70,9 @@ func main() {
 		return
 	}
 	defer sqlDB.Close()
+	sqlDB.SetMaxOpenConns(25)
+	sqlDB.SetMaxIdleConns(5)
+	sqlDB.SetConnMaxLifetime(time.Minute * 5)
 
 	// 3. Repository Katmanını Başlat
 	r := initRepositories(sqlDB)
